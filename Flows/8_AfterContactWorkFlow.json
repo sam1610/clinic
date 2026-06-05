@@ -1,0 +1,234 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "acw-set-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "acw-set-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "set-acw-end-timestamp": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "invoke-transcript-fetcher": {
+        "position": {
+          "x": 440,
+          "y": 40
+        }
+      },
+      "set-transcript-s3-key": {
+        "position": {
+          "x": 660,
+          "y": 40
+        }
+      },
+      "invoke-post-contact-orch": {
+        "position": {
+          "x": 880,
+          "y": 40
+        }
+      },
+      "set-pipeline-triggered": {
+        "position": {
+          "x": 1100,
+          "y": 40
+        }
+      },
+      "update-interaction-status": {
+        "position": {
+          "x": 1300,
+          "y": 40
+        }
+      },
+      "acw-end": {
+        "position": {
+          "x": 1500,
+          "y": 40
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "acw-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "set-acw-end-timestamp",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "set-acw-end-timestamp",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "contactEndReason",
+            "Value": "$.DisconnectReason",
+            "Namespace": "System"
+          },
+          {
+            "Key": "pipelineStatus",
+            "Value": "PENDING"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "invoke-transcript-fetcher",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-transcript-fetcher",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-transcribe-medical",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "contactId": "$.ContactId",
+          "channelType": "$.Attributes.channelType",
+          "patientId": "$.Attributes.patientId",
+          "instanceId": "0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "set-transcript-s3-key",
+        "Errors": [
+          {
+            "NextAction": "invoke-post-contact-orch",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "set-transcript-s3-key",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "transcriptS3Key",
+            "Value": "$.External.transcriptS3Key",
+            "Namespace": "External"
+          },
+          {
+            "Key": "recordingS3Key",
+            "Value": "$.External.recordingS3Key",
+            "Namespace": "External"
+          },
+          {
+            "Key": "interactionId",
+            "Value": "$.External.interactionId",
+            "Namespace": "External"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "invoke-post-contact-orch",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-post-contact-orch",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-summarization-agent",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "contactId": "$.ContactId",
+          "patientId": "$.Attributes.patientId",
+          "channelType": "$.Attributes.channelType",
+          "interactionId": "$.Attributes.interactionId",
+          "transcriptS3Key": "$.Attributes.transcriptS3Key",
+          "recordingS3Key": "$.Attributes.recordingS3Key",
+          "riskLevel": "$.Attributes.riskLevel",
+          "agentId": "$.Agent.ARN",
+          "queueName": "$.Queue.Name"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "set-pipeline-triggered",
+        "Errors": [
+          {
+            "NextAction": "acw-end",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "set-pipeline-triggered",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "pipelineStatus",
+            "Value": "TRIGGERED"
+          },
+          {
+            "Key": "pipelineTimestamp",
+            "Value": "$.External.pipelineTimestamp",
+            "Namespace": "External"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "update-interaction-status",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "update-interaction-status",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "5",
+        "LambdaInvocationAttributes": {
+          "action": "UPDATE_INTERACTION_STATUS",
+          "interactionId": "$.Attributes.interactionId",
+          "status": "ENDED",
+          "contactId": "$.ContactId"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "acw-end",
+        "Errors": [
+          {
+            "NextAction": "acw-end",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "acw-end",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

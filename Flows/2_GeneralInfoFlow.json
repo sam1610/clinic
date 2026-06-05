@@ -1,0 +1,347 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "set-generalinfo-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "set-generalinfo-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "set-session-type-general": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "play-general-greeting": {
+        "position": {
+          "x": 400,
+          "y": 40
+        }
+      },
+      "get-patient-query": {
+        "position": {
+          "x": 600,
+          "y": 40
+        }
+      },
+      "invoke-bedrock-general": {
+        "position": {
+          "x": 800,
+          "y": 40
+        }
+      },
+      "check-escalation-flag": {
+        "position": {
+          "x": 1000,
+          "y": 40
+        }
+      },
+      "play-agent-response": {
+        "position": {
+          "x": 1200,
+          "y": 40
+        }
+      },
+      "check-continue-or-end": {
+        "position": {
+          "x": 1400,
+          "y": 40
+        }
+      },
+      "transfer-to-agent": {
+        "position": {
+          "x": 1600,
+          "y": 40
+        }
+      },
+      "offer-more-help": {
+        "position": {
+          "x": 1600,
+          "y": 200
+        }
+      },
+      "play-goodbye": {
+        "position": {
+          "x": 1800,
+          "y": 200
+        }
+      },
+      "play-general-error": {
+        "position": {
+          "x": 1800,
+          "y": 320
+        }
+      },
+      "disconnect-general": {
+        "position": {
+          "x": 2000,
+          "y": 200
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "set-generalinfo-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "set-session-type-general",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "set-session-type-general",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "sessionType",
+            "Value": "GENERAL_INFO"
+          },
+          {
+            "Key": "agentType",
+            "Value": "GeneralInfoAgent"
+          },
+          {
+            "Key": "PatientAuthenticated",
+            "Value": "false"
+          },
+          {
+            "Key": "loopCount",
+            "Value": "0"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "play-general-greeting",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-general-greeting",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Hello! I am the DigiCall virtual assistant. I can help you with clinic hours, services, location, and general information. How can I help you today?",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-patient-query",
+        "Errors": [
+          {
+            "NextAction": "play-general-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "get-patient-query",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Please speak your question, or type it in the chat.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "30",
+        "Speech": {
+          "EndingSilenceDurationMs": "2500"
+        }
+      },
+      "Transitions": {
+        "NextAction": "invoke-bedrock-general",
+        "Errors": [
+          {
+            "NextAction": "play-goodbye",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "play-goodbye",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "invoke-bedrock-general",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-lex-fulfillment",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "agentId": "PENDING_GENERAL",
+          "agentAliasId": "PENDING_ALIAS",
+          "sessionId": "$.ContactId",
+          "userInput": "$.Attributes.StoredCustomerInput",
+          "patientId": "$.Attributes.patientId",
+          "isAuthenticated": "$.Attributes.PatientAuthenticated",
+          "agentType": "GeneralInfoAgent",
+          "channelType": "$.Attributes.channelType"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-escalation-flag",
+        "Errors": [
+          {
+            "NextAction": "play-general-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-escalation-flag",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.escalationFlag"
+      },
+      "Transitions": {
+        "NextAction": "play-agent-response",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "transfer-to-agent",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "play-agent-response",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.agentResponse",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "check-continue-or-end",
+        "Errors": [
+          {
+            "NextAction": "play-general-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-continue-or-end",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Is there anything else I can help you with? Press 1 to ask another question, press 2 to speak with an agent, or press 3 to end the call.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "10",
+        "DTMF": {
+          "NumberOfDigits": "1",
+          "DisableCancelKey": "false"
+        }
+      },
+      "Transitions": {
+        "NextAction": "offer-more-help",
+        "Errors": [
+          {
+            "NextAction": "play-goodbye",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "get-patient-query",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "transfer-to-agent",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "play-goodbye",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "offer-more-help",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I am happy to help. Please go ahead.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-patient-query",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "transfer-to-agent",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/70c3bbef-936d-4de1-8d9c-d39b32649e61"
+      },
+      "Transitions": {
+        "NextAction": "play-general-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-goodbye",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for contacting DigiCall Clinic. Have a great day!",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "disconnect-general",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-general-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We are sorry, something went wrong. Please hold while we connect you to an agent.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "transfer-to-agent",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "disconnect-general",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

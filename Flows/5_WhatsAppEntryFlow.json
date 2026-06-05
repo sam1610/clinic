@@ -1,0 +1,298 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "wa-set-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "wa-set-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "set-channel-whatsapp": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "invoke-wa-patient-lookup": {
+        "position": {
+          "x": 440,
+          "y": 40
+        }
+      },
+      "check-wa-patient": {
+        "position": {
+          "x": 660,
+          "y": 40
+        }
+      },
+      "send-wa-welcome-known": {
+        "position": {
+          "x": 880,
+          "y": 40
+        }
+      },
+      "send-wa-welcome-unknown": {
+        "position": {
+          "x": 880,
+          "y": 200
+        }
+      },
+      "get-wa-intent": {
+        "position": {
+          "x": 1100,
+          "y": 40
+        }
+      },
+      "check-wa-intent": {
+        "position": {
+          "x": 1300,
+          "y": 40
+        }
+      },
+      "route-wa-general": {
+        "position": {
+          "x": 1500,
+          "y": 200
+        }
+      },
+      "route-wa-auth": {
+        "position": {
+          "x": 1500,
+          "y": 40
+        }
+      },
+      "wa-error": {
+        "position": {
+          "x": 1500,
+          "y": 320
+        }
+      },
+      "wa-disconnect": {
+        "position": {
+          "x": 1700,
+          "y": 320
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "wa-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "set-channel-whatsapp",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "set-channel-whatsapp",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "channelType",
+            "Value": "WHATSAPP"
+          },
+          {
+            "Key": "PatientAuthenticated",
+            "Value": "false"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "invoke-wa-patient-lookup",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-wa-patient-lookup",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "5",
+        "LambdaInvocationAttributes": {
+          "patientPhone": "$.CustomerEndpoint.Address",
+          "channel": "WHATSAPP"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-wa-patient",
+        "Errors": [
+          {
+            "NextAction": "send-wa-welcome-unknown",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-wa-patient",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.patientFound"
+      },
+      "Transitions": {
+        "NextAction": "send-wa-welcome-unknown",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "send-wa-welcome-known",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "send-wa-welcome-known",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "👋 Welcome to DigiCall Clinic on WhatsApp!\n\nHow can I help you today?\n\nReply with:\n1️⃣ General information (hours, location, services)\n2️⃣ Medical support (requires identity verification)\n3️⃣ Book an appointment\n4️⃣ Speak with an agent",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-wa-intent",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "send-wa-welcome-unknown",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "👋 Welcome to DigiCall Clinic on WhatsApp!\n\nHow can I help you today?\n\nReply with:\n1️⃣ General information (hours, location, services)\n4️⃣ Speak with an agent\n\n⚠️ Your number is not registered in our system. For medical services, please contact reception.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-wa-intent",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "get-wa-intent",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Please type your choice (1, 2, 3, or 4) or type your question directly.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "120",
+        "Speech": {
+          "EndingSilenceDurationMs": "3000"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-wa-intent",
+        "Errors": [
+          {
+            "NextAction": "wa-error",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-wa-intent",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.Attributes.StoredCustomerInput"
+      },
+      "Transitions": {
+        "NextAction": "route-wa-general",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "route-wa-general",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-wa-auth",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-wa-auth",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-wa-general",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "4"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "route-wa-general",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/650174c5-248a-429b-9118-4a0c0e4b0e3c"
+      },
+      "Transitions": {
+        "NextAction": "wa-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "route-wa-auth",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/3e9a16e2-2e67-4212-aad5-8a4c2f712fcb"
+      },
+      "Transitions": {
+        "NextAction": "wa-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "wa-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We encountered an issue. Please try again or contact us at the clinic reception. Thank you.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "wa-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "wa-disconnect",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

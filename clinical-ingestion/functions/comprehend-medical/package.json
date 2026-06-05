@@ -1,0 +1,21 @@
+{
+  "name": "comprehend-medical-function",
+  "version": "1.0.0",
+  "description": "Lambda function to process transcripts with Comprehend Medical and write to DynamoDB",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@aws-sdk/client-comprehendmedical": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/util-dynamodb": "^3.600.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,433 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "appt-set-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "appt-set-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "check-appt-auth": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "redirect-to-otp": {
+        "position": {
+          "x": 400,
+          "y": 200
+        }
+      },
+      "play-appt-intro": {
+        "position": {
+          "x": 400,
+          "y": 40
+        }
+      },
+      "invoke-get-availability": {
+        "position": {
+          "x": 600,
+          "y": 40
+        }
+      },
+      "check-slots-available": {
+        "position": {
+          "x": 800,
+          "y": 40
+        }
+      },
+      "play-available-slots": {
+        "position": {
+          "x": 1000,
+          "y": 40
+        }
+      },
+      "get-slot-choice": {
+        "position": {
+          "x": 1200,
+          "y": 40
+        }
+      },
+      "invoke-book-appointment": {
+        "position": {
+          "x": 1400,
+          "y": 40
+        }
+      },
+      "check-booking-result": {
+        "position": {
+          "x": 1600,
+          "y": 40
+        }
+      },
+      "play-booking-confirmed": {
+        "position": {
+          "x": 1800,
+          "y": 40
+        }
+      },
+      "play-no-slots": {
+        "position": {
+          "x": 1800,
+          "y": 200
+        }
+      },
+      "play-booking-error": {
+        "position": {
+          "x": 1800,
+          "y": 320
+        }
+      },
+      "ask-more-help": {
+        "position": {
+          "x": 2000,
+          "y": 40
+        }
+      },
+      "appt-transfer-agent": {
+        "position": {
+          "x": 2200,
+          "y": 120
+        }
+      },
+      "appt-goodbye": {
+        "position": {
+          "x": 2200,
+          "y": 40
+        }
+      },
+      "appt-disconnect": {
+        "position": {
+          "x": 2400,
+          "y": 40
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "appt-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "check-appt-auth",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "check-appt-auth",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.Attributes.PatientAuthenticated"
+      },
+      "Transitions": {
+        "NextAction": "redirect-to-otp",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "play-appt-intro",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "redirect-to-otp",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/3e9a16e2-2e67-4212-aad5-8a4c2f712fcb"
+      },
+      "Transitions": {
+        "NextAction": "play-booking-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-appt-intro",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I will help you book an appointment. Let me check available slots for you now.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "invoke-get-availability",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-get-availability",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-lex-fulfillment",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "agentId": "PENDING_APPT",
+          "agentAliasId": "PENDING_ALIAS",
+          "sessionId": "$.ContactId",
+          "action": "GET_AVAILABILITY",
+          "patientId": "$.Attributes.patientId",
+          "isAuthenticated": "$.Attributes.PatientAuthenticated",
+          "channelType": "$.Attributes.channelType"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-slots-available",
+        "Errors": [
+          {
+            "NextAction": "play-booking-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-slots-available",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.slotsAvailable"
+      },
+      "Transitions": {
+        "NextAction": "play-no-slots",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "play-available-slots",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "play-available-slots",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.slotsMessage",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-slot-choice",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "get-slot-choice",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Please enter the number of the appointment slot you would like to book, or press 0 to speak with an agent.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "30",
+        "DTMF": {
+          "NumberOfDigits": "1",
+          "DisableCancelKey": "false"
+        }
+      },
+      "Transitions": {
+        "NextAction": "invoke-book-appointment",
+        "Errors": [
+          {
+            "NextAction": "appt-transfer-agent",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "appt-transfer-agent",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "0"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "invoke-book-appointment",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-appointment",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "patientId": "$.Attributes.patientId",
+          "slotChoice": "$.Attributes.StoredCustomerInput",
+          "contactId": "$.ContactId",
+          "isAuthenticated": "$.Attributes.PatientAuthenticated",
+          "authToken": "$.Attributes.authSessionToken"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-booking-result",
+        "Errors": [
+          {
+            "NextAction": "play-booking-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-booking-result",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.bookingSuccess"
+      },
+      "Transitions": {
+        "NextAction": "play-booking-error",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "play-booking-confirmed",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "play-booking-confirmed",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.confirmationMessage",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "ask-more-help",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-no-slots",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I am sorry, there are no available appointment slots at this time. Would you like me to connect you with an agent who can assist further?",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "ask-more-help",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-booking-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "I was unable to complete the booking. Let me connect you with an agent.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "appt-transfer-agent",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "ask-more-help",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Is there anything else I can help you with? Press 1 for yes, press 2 to speak with an agent, press 3 to end.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "10",
+        "DTMF": {
+          "NumberOfDigits": "1",
+          "DisableCancelKey": "false"
+        }
+      },
+      "Transitions": {
+        "NextAction": "appt-goodbye",
+        "Errors": [
+          {
+            "NextAction": "appt-goodbye",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "play-appt-intro",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "appt-transfer-agent",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "appt-goodbye",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "appt-transfer-agent",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/70c3bbef-936d-4de1-8d9c-d39b32649e61"
+      },
+      "Transitions": {
+        "NextAction": "play-booking-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "appt-goodbye",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you. Have a great day and see you at your appointment!",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "appt-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "appt-disconnect",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

@@ -1,0 +1,469 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "sup-set-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "sup-set-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "verify-supervisor-role": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "check-supervisor-auth": {
+        "position": {
+          "x": 440,
+          "y": 40
+        }
+      },
+      "deny-unauthorized": {
+        "position": {
+          "x": 440,
+          "y": 200
+        }
+      },
+      "get-monitor-mode": {
+        "position": {
+          "x": 660,
+          "y": 40
+        }
+      },
+      "check-monitor-choice": {
+        "position": {
+          "x": 880,
+          "y": 40
+        }
+      },
+      "invoke-barge-in": {
+        "position": {
+          "x": 1100,
+          "y": 40
+        }
+      },
+      "invoke-whisper-mode": {
+        "position": {
+          "x": 1100,
+          "y": 120
+        }
+      },
+      "invoke-silent-monitor": {
+        "position": {
+          "x": 1100,
+          "y": 200
+        }
+      },
+      "check-crisis-targets": {
+        "position": {
+          "x": 1100,
+          "y": 320
+        }
+      },
+      "barge-in-active": {
+        "position": {
+          "x": 1300,
+          "y": 40
+        }
+      },
+      "whisper-active": {
+        "position": {
+          "x": 1300,
+          "y": 120
+        }
+      },
+      "silent-active": {
+        "position": {
+          "x": 1300,
+          "y": 200
+        }
+      },
+      "play-crisis-contacts": {
+        "position": {
+          "x": 1300,
+          "y": 320
+        }
+      },
+      "sup-get-contact-id": {
+        "position": {
+          "x": 1500,
+          "y": 40
+        }
+      },
+      "invoke-join-contact": {
+        "position": {
+          "x": 1700,
+          "y": 40
+        }
+      },
+      "play-monitor-error": {
+        "position": {
+          "x": 1900,
+          "y": 320
+        }
+      },
+      "sup-disconnect": {
+        "position": {
+          "x": 2100,
+          "y": 320
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "sup-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "verify-supervisor-role",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "verify-supervisor-role",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "3",
+        "LambdaInvocationAttributes": {
+          "action": "VERIFY_SUPERVISOR",
+          "agentArn": "$.Agent.ARN",
+          "instanceId": "0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-supervisor-auth",
+        "Errors": [
+          {
+            "NextAction": "deny-unauthorized",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-supervisor-auth",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.isSupervisor"
+      },
+      "Transitions": {
+        "NextAction": "deny-unauthorized",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "get-monitor-mode",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "deny-unauthorized",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "You are not authorized to use the supervisor monitoring flow. This access has been logged.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "sup-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "get-monitor-mode",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Supervisor monitoring console. Press 1 to barge in on a call. Press 2 for whisper coaching. Press 3 for silent monitoring. Press 4 to view active crisis contacts.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "15",
+        "DTMF": {
+          "NumberOfDigits": "1",
+          "DisableCancelKey": "false"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-monitor-choice",
+        "Errors": [
+          {
+            "NextAction": "sup-disconnect",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-monitor-choice",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.Attributes.StoredCustomerInput"
+      },
+      "Transitions": {
+        "NextAction": "play-monitor-error",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "invoke-barge-in",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "invoke-whisper-mode",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "invoke-silent-monitor",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "check-crisis-targets",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "4"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "invoke-barge-in",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "monitorMode",
+            "Value": "BARGE_IN"
+          },
+          {
+            "Key": "supervisorARN",
+            "Value": "$.Agent.ARN",
+            "Namespace": "System"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "sup-get-contact-id",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-whisper-mode",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "monitorMode",
+            "Value": "WHISPER"
+          },
+          {
+            "Key": "supervisorARN",
+            "Value": "$.Agent.ARN",
+            "Namespace": "System"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "sup-get-contact-id",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-silent-monitor",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "monitorMode",
+            "Value": "SILENT"
+          },
+          {
+            "Key": "supervisorARN",
+            "Value": "$.Agent.ARN",
+            "Namespace": "System"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "sup-get-contact-id",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "check-crisis-targets",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "5",
+        "LambdaInvocationAttributes": {
+          "action": "LIST_ACTIVE_CRISIS",
+          "instanceId": "0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd",
+          "supervisorId": "$.Agent.ARN"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "play-crisis-contacts",
+        "Errors": [
+          {
+            "NextAction": "play-monitor-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "play-crisis-contacts",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.crisisContactsSummary",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-monitor-mode",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "sup-get-contact-id",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Please enter the contact ID you wish to monitor. You can find this in the supervisor dashboard.",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "20",
+        "DTMF": {
+          "NumberOfDigits": "10",
+          "DisableCancelKey": "false"
+        }
+      },
+      "Transitions": {
+        "NextAction": "invoke-join-contact",
+        "Errors": [
+          {
+            "NextAction": "play-monitor-error",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "invoke-join-contact",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "5",
+        "LambdaInvocationAttributes": {
+          "action": "JOIN_CONTACT",
+          "targetContactId": "$.Attributes.StoredCustomerInput",
+          "supervisorArn": "$.Agent.ARN",
+          "monitorMode": "$.Attributes.monitorMode",
+          "instanceId": "0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "barge-in-active",
+        "Errors": [
+          {
+            "NextAction": "play-monitor-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "barge-in-active",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "You are now connected to the call. You can speak directly to both the agent and the patient.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "sup-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "whisper-active",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Whisper mode active. You can speak to the agent. The patient cannot hear you.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "sup-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "silent-active",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Silent monitoring active. You can hear the call but neither party can hear you.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "sup-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "play-monitor-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Unable to connect to the requested contact. Please verify the contact ID and try again.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "get-monitor-mode",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "sup-disconnect",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

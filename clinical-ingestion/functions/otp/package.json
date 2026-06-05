@@ -1,0 +1,11 @@
+{
+  "name": "otp-functions",
+  "version": "1.0.0",
+  "description": "OTP generate and validate for Connect auth flow",
+  "scripts": { "build": "tsc -p generate/tsconfig.json && tsc -p validate/tsconfig.json" },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/client-sns": "^3.600.0"
+  },
+  "devDependencies": { "@types/node": "^20.0.0", "typescript": "^5.0.0" }
+}

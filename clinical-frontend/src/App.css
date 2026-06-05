@@ -1,0 +1,57 @@
+/* ── Reset & base ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  color: #111827;
+  background: #f9fafb;
+}
+
+/* ── Fade-in animation for live-subscription items ─────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+/* ── Ping animation (live dot) ─────────────────────────────────────────── */
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-ping {
+  animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* ── Pulse animation ───────────────────────────────────────────────────── */
+@keyframes pulse {
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── Scrollbar styling ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ── Tailwind-style utility shims ──────────────────────────────────────── */
+/* Only utilities not handled inline are listed here */
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

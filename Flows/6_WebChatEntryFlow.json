@@ -1,0 +1,497 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "webchat-set-logging",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "webchat-set-logging": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "set-channel-webchat": {
+        "position": {
+          "x": 220,
+          "y": 40
+        }
+      },
+      "invoke-webchat-lookup": {
+        "position": {
+          "x": 440,
+          "y": 40
+        }
+      },
+      "set-webchat-patient-attrs": {
+        "position": {
+          "x": 660,
+          "y": 40
+        }
+      },
+      "send-webchat-greeting": {
+        "position": {
+          "x": 880,
+          "y": 40
+        }
+      },
+      "lex-router-block": {
+        "position": {
+          "x": 1100,
+          "y": 40
+        }
+      },
+      "check-lex-intent": {
+        "position": {
+          "x": 1300,
+          "y": 40
+        }
+      },
+      "route-greet-to-supervisor": {
+        "position": {
+          "x": 1500,
+          "y": 40
+        }
+      },
+      "invoke-bedrock-webchat": {
+        "position": {
+          "x": 1700,
+          "y": 40
+        }
+      },
+      "check-webchat-action": {
+        "position": {
+          "x": 1900,
+          "y": 40
+        }
+      },
+      "send-webchat-response": {
+        "position": {
+          "x": 2100,
+          "y": 40
+        }
+      },
+      "check-needs-auth": {
+        "position": {
+          "x": 2100,
+          "y": 200
+        }
+      },
+      "route-to-auth-webchat": {
+        "position": {
+          "x": 2300,
+          "y": 200
+        }
+      },
+      "transfer-to-human-webchat": {
+        "position": {
+          "x": 2300,
+          "y": 120
+        }
+      },
+      "webchat-loop": {
+        "position": {
+          "x": 2300,
+          "y": 40
+        }
+      },
+      "send-webchat-end": {
+        "position": {
+          "x": 2300,
+          "y": 320
+        }
+      },
+      "webchat-error": {
+        "position": {
+          "x": 2500,
+          "y": 400
+        }
+      },
+      "webchat-disconnect": {
+        "position": {
+          "x": 2700,
+          "y": 400
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Identifier": "webchat-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "set-channel-webchat",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "set-channel-webchat",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "channelType",
+            "Value": "WEBCHAT"
+          },
+          {
+            "Key": "PatientAuthenticated",
+            "Value": "false"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "invoke-webchat-lookup",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-webchat-lookup",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
+        "InvocationTimeLimitSeconds": "5",
+        "LambdaInvocationAttributes": {
+          "patientPhone": "$.CustomerEndpoint.Address",
+          "channel": "WEBCHAT"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "set-webchat-patient-attrs",
+        "Errors": [
+          {
+            "NextAction": "set-webchat-patient-attrs",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "set-webchat-patient-attrs",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "patientId",
+            "Value": "$.External.patientId",
+            "Namespace": "External"
+          },
+          {
+            "Key": "riskLevel",
+            "Value": "$.External.riskLevel",
+            "Namespace": "External"
+          },
+          {
+            "Key": "hasActivePrescriptions",
+            "Value": "$.External.hasActivePrescriptions",
+            "Namespace": "External"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "send-webchat-greeting",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "send-webchat-greeting",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Hello! Welcome to DigiCall Clinic. I am your virtual assistant. How can I help you today?",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "lex-router-block",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "lex-router-block",
+      "Type": "ConnectParticipantWithLexBot",
+      "Parameters": {
+        "BotAliasArn": "arn:aws:lex:us-east-1:770961405135:bot-alias/WPGCAHKPTZ/BVPUW4UALA",
+        "DtmfEnabled": false,
+        "SessionAttributes": {
+          "patientId": "$.Attributes.patientId",
+          "channelType": "WEBCHAT"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-lex-intent",
+        "Errors": [
+          {
+            "NextAction": "route-greet-to-supervisor",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "route-greet-to-supervisor",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "GreetIntent"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-greet-to-supervisor",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-lex-intent",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.Lex.IntentName"
+      },
+      "Transitions": {
+        "NextAction": "route-greet-to-supervisor",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "route-greet-to-supervisor",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "GreetIntent"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-greet-to-supervisor",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "FallbackIntent"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "route-greet-to-supervisor",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          {
+            "Key": "agentType",
+            "Value": "SupervisorAgent"
+          },
+          {
+            "Key": "routedByLex",
+            "Value": "true"
+          }
+        ],
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "invoke-bedrock-webchat",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "invoke-bedrock-webchat",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-lex-fulfillment",
+        "InvocationTimeLimitSeconds": "8",
+        "LambdaInvocationAttributes": {
+          "agentId": "PENDING_SUPERVISOR",
+          "agentAliasId": "PENDING_ALIAS",
+          "sessionId": "$.ContactId",
+          "userInput": "$.Lex.InputTranscript",
+          "patientId": "$.Attributes.patientId",
+          "isAuthenticated": "$.Attributes.PatientAuthenticated",
+          "channelType": "WEBCHAT",
+          "riskLevel": "$.Attributes.riskLevel"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-webchat-action",
+        "Errors": [
+          {
+            "NextAction": "webchat-error",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "check-webchat-action",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.action"
+      },
+      "Transitions": {
+        "NextAction": "send-webchat-response",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "transfer-to-human-webchat",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "TRANSFER_TO_AGENT"
+              ]
+            }
+          },
+          {
+            "NextAction": "route-to-auth-webchat",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "REQUEST_AUTH"
+              ]
+            }
+          },
+          {
+            "NextAction": "transfer-to-human-webchat",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CRISIS_ESCALATE"
+              ]
+            }
+          },
+          {
+            "NextAction": "send-webchat-end",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "END_SESSION"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "send-webchat-response",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "$.External.agentResponse",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "webchat-loop",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "check-needs-auth",
+      "Type": "Compare",
+      "Parameters": {
+        "ComparisonValue": "$.External.requiresAuth"
+      },
+      "Transitions": {
+        "NextAction": "webchat-loop",
+        "Errors": [],
+        "Conditions": [
+          {
+            "NextAction": "route-to-auth-webchat",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "true"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "webchat-loop",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Is there anything else I can help you with?",
+        "TextToSpeechType": "text",
+        "InputTimeLimitSeconds": "180",
+        "Speech": {
+          "EndingSilenceDurationMs": "3000"
+        }
+      },
+      "Transitions": {
+        "NextAction": "invoke-bedrock-webchat",
+        "Errors": [
+          {
+            "NextAction": "send-webchat-end",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "route-to-auth-webchat",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/3e9a16e2-2e67-4212-aad5-8a4c2f712fcb"
+      },
+      "Transitions": {
+        "NextAction": "webchat-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "transfer-to-human-webchat",
+      "Type": "TransferToFlow",
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/70c3bbef-936d-4de1-8d9c-d39b32649e61"
+      },
+      "Transitions": {
+        "NextAction": "webchat-error",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "send-webchat-end",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for chatting with DigiCall Clinic. Have a wonderful day!",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "webchat-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "webchat-error",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We encountered a technical issue. An agent will be with you shortly.",
+        "TextToSpeechType": "text"
+      },
+      "Transitions": {
+        "NextAction": "webchat-disconnect",
+        "Errors": []
+      }
+    },
+    {
+      "Identifier": "webchat-disconnect",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    }
+  ]
+}

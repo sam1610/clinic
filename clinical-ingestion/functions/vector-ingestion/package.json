@@ -1,0 +1,20 @@
+{
+  "name": "vector-ingestion-function",
+  "version": "1.0.0",
+  "description": "Lambda function to vectorize PatientSummary records and index in OpenSearch",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
+    "@aws-sdk/credential-provider-node": "^3.600.0",
+    "@opensearch-project/opensearch": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

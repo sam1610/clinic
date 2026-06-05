@@ -1,0 +1,703 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "a1b2c3d4-0001-0001-0001-000000000001",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": -125.6,
+      "y": 36
+    },
+    "ActionMetadata": {
+      "a1b2c3d4-0001-0001-0001-000000000003": {
+        "position": {
+          "x": 580,
+          "y": 40
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000004": {
+        "position": {
+          "x": 860,
+          "y": 40
+        },
+        "dynamicParams": []
+      },
+      "a1b2c3d4-0001-0001-0001-000000000005": {
+        "position": {
+          "x": 1140,
+          "y": 40
+        },
+        "parameters": {
+          "Attributes": {
+            "BusinessPhoneNumber": {
+              "useDynamic": true
+            },
+            "CustomerPhoneNumber": {
+              "useDynamic": true
+            }
+          }
+        },
+        "dynamicParams": [
+          "BusinessPhoneNumber",
+          "CustomerPhoneNumber"
+        ]
+      },
+      "a1b2c3d4-0001-0001-0001-000000000012": {
+        "position": {
+          "x": 2260,
+          "y": 40
+        },
+        "parameters": {
+          "Attributes": {
+            "Reason": {
+              "useDynamic": true
+            },
+            "Symptoms": {
+              "useDynamic": true
+            },
+            "PatientPhoneNumber": {
+              "useDynamic": true
+            }
+          }
+        },
+        "dynamicParams": [
+          "Reason",
+          "Symptoms",
+          "PatientPhoneNumber"
+        ]
+      },
+      "a1b2c3d4-0001-0001-0001-000000000002": {
+        "position": {
+          "x": 300,
+          "y": 40
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000001": {
+        "position": {
+          "x": 40,
+          "y": 40
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000019": {
+        "position": {
+          "x": 2967.2,
+          "y": 46.4
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000006": {
+        "position": {
+          "x": 1420,
+          "y": 40
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "e88bbeaa-10e4-4693-8f33-35324b97e200",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "VOICE"
+          },
+          {
+            "id": "76422f11-a704-4b6c-bc15-1d36e17b52c2",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "CHAT"
+          }
+        ]
+      },
+      "a1b2c3d4-0001-0001-0001-000000000010": {
+        "position": {
+          "x": 2260,
+          "y": -200
+        },
+        "parameters": {
+          "LambdaFunctionARN": {
+            "displayName": "arn:aws:lambda:us-east-1:770961405135:function:digicall-patient-lookup"
+          }
+        },
+        "dynamicMetadata": {
+          "phoneNumber": false
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000009": {
+        "position": {
+          "x": 1980,
+          "y": -200
+        },
+        "parameters": {
+          "LexV2Bot": {
+            "AliasArn": {
+              "displayName": "ClinicProd",
+              "useLexBotDropdown": true,
+              "lexV2BotName": "PsychClinicReception"
+            }
+          }
+        },
+        "dynamicMetadata": {
+          "phoneNumber": false
+        },
+        "useLexBotDropdown": true,
+        "lexV2BotName": "PsychClinicReception",
+        "lexV2BotAliasName": "ClinicProd",
+        "conditionMetadata": []
+      },
+      "a1b2c3d4-0001-0001-0001-000000000008": {
+        "position": {
+          "x": 1700,
+          "y": 40
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000011": {
+        "position": {
+          "x": 2260,
+          "y": -400
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "31d72ccb-27a1-4afd-9422-84607ce15ad5",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "UrgentCrisisQueue"
+          },
+          {
+            "id": "075628e0-c143-4591-9775-c764812aa588",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "MedicalSupportQueue"
+          },
+          {
+            "id": "164d2951-5491-478d-b70f-4f13dde2c586",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "GeneralInfoQueue"
+          },
+          {
+            "id": "cf832684-ceeb-4e34-800d-48b966bf1118",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "AppointmentQueue"
+          }
+        ]
+      },
+      "a1b2c3d4-0001-0001-0001-000000000007": {
+        "position": {
+          "x": 1700,
+          "y": -200
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000018": {
+        "position": {
+          "x": 3100,
+          "y": -200
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000013": {
+        "position": {
+          "x": 2540,
+          "y": -600
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "Emergency_Crisis"
+          }
+        },
+        "queue": {
+          "text": "Emergency_Crisis"
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000014": {
+        "position": {
+          "x": 2540,
+          "y": -400
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "Nursing_Meds"
+          }
+        },
+        "queue": {
+          "text": "Nursing_Meds"
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000015": {
+        "position": {
+          "x": 2540,
+          "y": -200
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "BasicQueue"
+          }
+        },
+        "queue": {
+          "text": "BasicQueue"
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000016": {
+        "position": {
+          "x": 2540,
+          "y": 0
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "Scheduling_Desk"
+          }
+        },
+        "queue": {
+          "text": "Scheduling_Desk"
+        }
+      },
+      "a1b2c3d4-0001-0001-0001-000000000017": {
+        "position": {
+          "x": 2820,
+          "y": -200
+        }
+      }
+    },
+    "Annotations": [],
+    "name": "01_MainInboundFlow",
+    "description": "",
+    "type": "contactFlow",
+    "status": "PUBLISHED",
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Welcome to DigiCall Psychiatric Clinic. Bienvenue à la clinique DigiCall."
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000003",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000004",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "TenantID": "DIGICALL_CLINIC_01",
+          "BusinessPhoneNumber": "$.SystemEndpoint.Address",
+          "CustomerPhoneNumber": "$.CustomerEndpoint.Address",
+          "PatientAuthenticated": "false",
+          "channelType": "VOICE"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000004",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000005",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "BusinessPhoneNumber": "$.SystemEndpoint.Address",
+          "CustomerPhoneNumber": "$.CustomerEndpoint.Address"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000005",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000006",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "Reason": "$.Lex.SessionAttributes.TargetQueue",
+          "Symptoms": "$.Lex.SessionAttributes.Symptoms",
+          "PatientPhoneNumber": "$.Lex.SessionAttributes.PatientPhoneNumber"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000012",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000011",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "VoiceBehavior": {
+          "VoiceRecordingBehavior": {
+            "RecordedParticipants": [
+              "Agent",
+              "Customer"
+            ],
+            "IVRRecordingBehavior": "Enabled"
+          },
+          "VoiceAnalyticsBehavior": {
+            "Enabled": "True",
+            "AnalyticsLanguage": "en-US",
+            "AnalyticsModes": [
+              "RealTime",
+              "AutomatedInteraction"
+            ],
+            "ConversationalAnalyticsRedactionConfiguration": {
+              "Enabled": "True",
+              "RedactionMaskMode": "PII",
+              "RedactionResults": "RedactedAndOriginal"
+            },
+            "SentimentConfiguration": {
+              "Enabled": "True"
+            },
+            "SummaryConfiguration": {
+              "SummaryModes": [
+                "PostContact",
+                "AutomatedInteraction"
+              ]
+            }
+          }
+        }
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000002",
+      "Type": "UpdateContactRecordingAndAnalyticsBehavior",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000003",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "ChannelMismatch"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000001",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000002"
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000019",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Channel"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000006",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000008",
+        "Conditions": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "VOICE"
+              ]
+            }
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000009",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CHAT"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000008",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:digicall-patient-lookup",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "phoneNumber": "$.Attributes.CustomerPhoneNumber"
+        },
+        "ResponseValidation": {
+          "ResponseType": "JSON"
+        }
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000010",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000012",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Thank you for calling DigiCall Clinic. How can I help you today?",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:770961405135:bot-alias/WPGCAHKPTZ/BVPUW4UALA"
+        },
+        "LexSessionAttributes": {
+          "phoneNumber": "$.Attributes.CustomerPhoneNumber"
+        }
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000009",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000010",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Thank you for contacting DigiCall Clinic. Please hold while we connect you."
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000008",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000015",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000018",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.Lex.SessionAttributes.TargetQueue"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000011",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000015",
+        "Conditions": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000013",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "UrgentCrisisQueue"
+              ]
+            }
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000014",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "MedicalSupportQueue"
+              ]
+            }
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000015",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "GeneralInfoQueue"
+              ]
+            }
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000016",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "AppointmentQueue"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000015",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "We are experiencing a technical issue. Please try again shortly."
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000007",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000018",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000018",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000018",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000019",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000019",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000019",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/f8adc370-4064-42f2-8190-4fe339176dd6"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000013",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000017",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/66fad567-0b0d-418e-865a-42319d98f19f"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000014",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000017",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/a40753a8-74a2-4269-a2fc-7d32801fe58a"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000015",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000017",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/b615815a-3d86-46b8-b747-0e538732f546"
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000016",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000017",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000007",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Thank you. I have noted your request and am transferring you to the appropriate team now. Please hold."
+      },
+      "Identifier": "a1b2c3d4-0001-0001-0001-000000000017",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "a1b2c3d4-0001-0001-0001-000000000018",
+        "Errors": [
+          {
+            "NextAction": "a1b2c3d4-0001-0001-0001-000000000018",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    }
+  ]
+}

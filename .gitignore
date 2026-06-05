@@ -1,0 +1,56 @@
+# ── macOS ──────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Secrets & environment files ────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ── Node / npm ─────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── TypeScript build output ─────────────────────────────────────────────────
+dist/
+*.js.map
+*.d.ts
+*.tsbuildinfo
+
+# ── AWS CDK ──────────────────────────────────────────────────────────────────
+cdk.out/
+.cdk.staging/
+
+# ── Lambda deployment zips ───────────────────────────────────────────────────
+*.zip
+
+# ── Amplify ──────────────────────────────────────────────────────────────────
+.amplify/
+amplify_outputs.json
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.uv/
+*.egg-info/
+dist/
+build/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Misc duplicate / temp files ───────────────────────────────────────────────
+"Flows/5_WhatsAppEntryFlow copy.json"
+Flows/a.json
