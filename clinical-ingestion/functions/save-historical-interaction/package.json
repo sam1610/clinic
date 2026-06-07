@@ -1,15 +1,15 @@
 {
-  "name": "lex-fulfillment-function",
+  "name": "save-historical-interaction",
   "version": "1.0.0",
-  "description": "Lex code hook — drives full chat conversation via Claude 3.5 Sonnet",
+  "description": "Writes Amazon Connect CTR Contact Lens summary to HistoricalInteraction DynamoDB table",
   "main": "index.js",
   "scripts": { "build": "tsc" },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.600.0",
     "@aws-sdk/client-dynamodb": "^3.600.0",
     "@aws-sdk/lib-dynamodb": "^3.600.0"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }

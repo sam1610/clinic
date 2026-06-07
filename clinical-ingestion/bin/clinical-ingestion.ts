@@ -2,29 +2,28 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ClinicalIngestionStack } from '../lib/clinical-ingestion-stack';
-import { VectorSearchStack } from '../lib/vector-search-stack';
+import { BedrockKnowledgeBaseStack } from '../lib/bedrock-knowledge-base-stack';
 
 const app = new cdk.App();
 
-// Clinical Ingestion Stack (Transcribe + Comprehend)
+const env = {
+  account: '770961405135',
+  region: 'us-east-1',
+};
+
+// ── 1. Call Recordings Bucket ────────────────────────────────────────────
 new ClinicalIngestionStack(app, 'ClinicalIngestionStack', {
-  env: {
-    account: '770961405135',
-    region: 'us-east-1',
-  },
-  description: 'Clinical audio and text processing pipeline with Transcribe Medical and Comprehend Medical',
-  clinicalInteractionTableName: 'ClinicalInteraction-xbseoxrhxfa4tpsomwm3meyily-NONE',
-  clinicalEntitiesTableName: 'ClinicalEntities-xbseoxrhxfa4tpsomwm3meyily-NONE',
+  env,
+  description: 'Secure S3 bucket for Amazon Connect call recordings',
 });
 
-// Vector Search Stack (OpenSearch Serverless + Titan Embeddings)
-new VectorSearchStack(app, 'VectorSearchStack', {
-  env: {
-    account: '770961405135',
-    region: 'us-east-1',
-  },
-  description: 'Vector search system for clinical case similarity using OpenSearch Serverless',
-  patientSummaryTableName: 'PatientSummary-xbseoxrhxfa4tpsomwm3meyily-NONE',
-  patientSummaryTableArn:  'arn:aws:dynamodb:us-east-1:770961405135:table/PatientSummary-xbseoxrhxfa4tpsomwm3meyily-NONE',
-  patientSummaryStreamArn: 'arn:aws:dynamodb:us-east-1:770961405135:table/PatientSummary-xbseoxrhxfa4tpsomwm3meyily-NONE/stream/2026-06-03T13:04:08.491',
+// ── 2. Bedrock Knowledge Base + CTR Post-Processor ───────────────────────
+new BedrockKnowledgeBaseStack(app, 'BedrockKnowledgeBaseStack', {
+  env,
+  description:
+    'Bedrock Knowledge Base (medical guidelines) + SaveHistoricalInteraction Lambda',
+  historicalInteractionTableName:
+    'HistoricalInteraction-xbseoxrhxfa4tpsomwm3meyily-NONE',
+  historicalInteractionTableArn:
+    'arn:aws:dynamodb:us-east-1:770961405135:table/HistoricalInteraction-xbseoxrhxfa4tpsomwm3meyily-NONE',
 });

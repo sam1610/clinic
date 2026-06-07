@@ -1,80 +1,109 @@
-"""Lambda handler for Diagnostic Agent."""
+"""
+Lambda handler — Diagnostic Agent step in the Step Functions medical pipeline.
+
+This Lambda sits between the Comprehend Medical entity-extraction step and
+the DynamoDB writer step in the state machine.
+
+Step Functions integration mode: Lambda:invoke (RequestResponse).
+
+Expected input (passed verbatim from the previous state's output):
+{
+  "contactId":        str,
+  "patientId":        str,
+  "interactionDate":  str,   # ISO-8601
+  "s3RecordingUrl":   str | null,
+  "rawTranscript":    str,
+  "medicalEntities":  {      # Comprehend Medical DetectEntitiesV2 payload
+    "entities":       [...],
+    "unmappedAttributes": [...]
+  },
+  "icd10Codes": [            # Mapped ICD-10 codes from previous step
+    { "code": str, "description": str, "confidence": float },
+    ...
+  ]
+}
+
+Successful output (passed to the next state — DynamoDB writer):
+{
+  ...all input fields preserved...,
+  "diagnosticSummary": {
+    "summary":        str,
+    "riskLevel":      "Low" | "Medium" | "High",
+    "recommendations": [str, ...]
+  }
+}
+
+On error the Lambda raises an exception so Step Functions can handle it via
+a Catch / Retry block — no HTTP status code wrapping.
+"""
 
 import json
+import logging
 import os
-from typing import Dict, Any
+from typing import Any
+
 from .agent import DiagnosticAgent
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+# Lazily initialised at module level so it is reused across warm invocations
+_agent: DiagnosticAgent | None = None
+
+
+def _get_agent() -> DiagnosticAgent:
+    global _agent
+    if _agent is None:
+        region = os.environ.get("BEDROCK_REGION", "us-east-1")
+        logger.info("Initialising DiagnosticAgent (region=%s)", region)
+        _agent = DiagnosticAgent(region=region)
+    return _agent
+
+
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
-    Lambda handler for Diagnostic Agent.
-
-    Can be triggered by:
-    1. EventBridge scheduled rule (batch processing)
-    2. Manual invocation with patient_record_id
-    3. API Gateway request
-
-    Event structure:
-    {
-      "patient_record_id": "PAT-12345",
-      "interaction_id": "INT-67890"  # Optional
-    }
+    Lambda entry-point for the Diagnostic Agent Step Functions task.
 
     Args:
-        event: Lambda event
-        context: Lambda context
+        event:   The output of the previous Step Functions state (entity extraction).
+        context: Lambda execution context (unused, but kept for signature compliance).
 
     Returns:
-        Response with diagnostic assessment
-    """
-    print(f"Received event: {json.dumps(event)}")
+        The enriched payload dict with `diagnosticSummary` added.
+        Step Functions maps this return value directly to the next state's input.
 
-    # Initialize agent
-    agent = DiagnosticAgent(
-        region=os.environ.get("BEDROCK_REGION", "us-east-1"),
-        appsync_endpoint=os.environ.get("APPSYNC_ENDPOINT"),
-        opensearch_endpoint=os.environ.get("OPENSEARCH_ENDPOINT"),
+    Raises:
+        ValueError:  Missing required fields — Step Functions should retry or fail fast.
+        RuntimeError: Bedrock call failed — Step Functions should Catch and notify.
+    """
+    logger.info(
+        "diagnostic-agent | contactId=%s patientId=%s",
+        event.get("contactId", "<missing>"),
+        event.get("patientId", "<missing>"),
     )
 
-    # Extract patient_record_id from event
-    patient_record_id = event.get("patient_record_id")
-    interaction_id = event.get("interaction_id")
-
-    if not patient_record_id:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "patient_record_id is required"}),
-        }
-
-    try:
-        # Process patient case and generate diagnostic assessment
-        result = agent.process_patient_case(
-            patient_record_id=patient_record_id,
-            interaction_id=interaction_id,
+    # The Step Function passes the full state input as the event.
+    # Validate the two most critical fields immediately so errors surface
+    # before we hit Bedrock and waste a model call.
+    if not event.get("contactId"):
+        raise ValueError("Payload is missing required field: contactId")
+    if not event.get("patientId"):
+        raise ValueError("Payload is missing required field: patientId")
+    if not event.get("rawTranscript"):
+        raise ValueError("Payload is missing required field: rawTranscript")
+    if not isinstance(event.get("medicalEntities"), dict):
+        raise ValueError(
+            "Payload field 'medicalEntities' must be a dict "
+            f"(got {type(event.get('medicalEntities')).__name__})"
         )
 
-        return {
-            "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "message": "Diagnostic assessment completed",
-                    "summary_id": result.get("summary_id"),
-                    "risk_level": result.get("risk_level"),
-                    "diagnostic_suggestions": result.get("diagnostic_suggestions"),
-                    "psychological_risk_markers": result.get("psychological_risk_markers"),
-                }
-            ),
-        }
+    agent = _get_agent()
+    result = agent.run(event)
 
-    except Exception as e:
-        print(f"Error processing diagnostic assessment: {e}")
-        return {
-            "statusCode": 500,
-            "body": json.dumps(
-                {
-                    "error": "Failed to process diagnostic assessment",
-                    "details": str(e),
-                }
-            ),
-        }
+    logger.info(
+        "diagnostic-agent | complete | contactId=%s riskLevel=%s",
+        result.get("contactId"),
+        result.get("diagnosticSummary", {}).get("riskLevel"),
+    )
+
+    return result

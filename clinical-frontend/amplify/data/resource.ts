@@ -2,18 +2,23 @@ import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
 /**
  * Clinical AI Assistant Data Schema
- * 
- * This schema defines the core data models for the Multi-Modal Clinical AI Assistant:
- * - PatientRecord: Basic patient demographics
- * - ClinicalInteraction: Audio recordings and transcripts from patient interactions
- * - ClinicalEntities: Structured medical entities extracted by AWS Comprehend Medical
- * - PatientSummary: AI-generated summaries and diagnostic suggestions from Strands Agents
- * 
- * All models are restricted to authenticated users in MedicalStaff or Psychologist groups.
+ *
+ * This schema supports the asynchronous Step Functions medical pipeline:
+ *
+ * - PatientRecord:        Core patient demographics. Acts as the EHR anchor.
+ * - HistoricalInteraction: Post-call record written by the pipeline processor
+ *                          (EventBridge → Lambda). Contains the full enriched
+ *                          payload: transcript, Comprehend Medical entities,
+ *                          ICD-10 codes, and Bedrock diagnostic summary.
+ *
+ * Real-time streaming models (ClinicalInteraction, ClinicalEntities,
+ * PatientSummary) have been removed — real-time intelligence is handled
+ * natively by Amazon Connect AI / Contact Lens.
  */
 const schema = a.schema({
   /**
-   * PatientRecord: Stores basic patient demographics and metadata
+   * PatientRecord
+   * Stores patient demographics. Serves as the EHR lookup key for staff.
    */
   PatientRecord: a
     .model({
@@ -23,12 +28,7 @@ const schema = a.schema({
       dateOfBirth: a.date(),
       phoneNumber: a.string(),
       email: a.email(),
-      region: a.string(), // Bahrain or KSA
-      createdAt: a.datetime(),
-      updatedAt: a.datetime(),
-      // Relationships
-      interactions: a.hasMany('ClinicalInteraction', 'patientRecordId'),
-      summaries: a.hasMany('PatientSummary', 'patientRecordId'),
+      region: a.string(), // "Bahrain" | "KSA"
     })
     .authorization((allow) => [
       allow.group('MedicalStaff'),
@@ -36,77 +36,41 @@ const schema = a.schema({
     ]),
 
   /**
-   * ClinicalInteraction: Stores audio recordings, transcripts, and interaction metadata
+   * HistoricalInteraction
+   *
+   * Written once per completed contact by the post-call Lambda processor.
+   * Contains the full enriched output of the Step Functions pipeline:
+   *   1. Raw transcript (Amazon Transcribe Medical)
+   *   2. Medical entities (AWS Comprehend Medical)
+   *   3. ICD-10 mapped conditions
+   *   4. Diagnostic summary (Amazon Bedrock agent structured reasoning)
+   *
+   * All JSON fields use AWSJSON so the Lambda can write arbitrary
+   * structured objects without a rigid schema evolution burden.
    */
-  ClinicalInteraction: a
+  HistoricalInteraction: a
     .model({
-      interactionId: a.string().required(),
-      patientRecordId: a.id().required(),
-      // Audio and transcript data
-      audioS3Uri: a.string(), // S3 URI for the call recording
-      transcriptText: a.string(), // Raw transcript from Amazon Transcribe Medical
-      // Interaction metadata
-      channel: a.string(), // Voice, WhatsApp, WebChat
-      startTime: a.datetime(),
-      endTime: a.datetime(),
-      duration: a.integer(), // Duration in seconds
-      // Connect metadata
-      connectContactId: a.string(),
-      agentId: a.string(), // Medical staff or psychologist who handled the call
-      // Relationships
-      patientRecord: a.belongsTo('PatientRecord', 'patientRecordId'),
-      entities: a.hasMany('ClinicalEntities', 'clinicalInteractionId'),
-    })
-    .authorization((allow) => [
-      allow.group('MedicalStaff'),
-      allow.group('Psychologist'),
-    ]),
+      // --- Identity ---
+      patientId: a.string().required(),       // FK to PatientRecord.patientId
+      contactId: a.string().required(),       // Amazon Connect ContactId (unique per call)
 
-  /**
-   * ClinicalEntities: Stores structured medical entities extracted by AWS Comprehend Medical
-   */
-  ClinicalEntities: a
-    .model({
-      entityId: a.string().required(),
-      clinicalInteractionId: a.id().required(),
-      // Comprehend Medical output (stored as JSON string)
-      entitiesJson: a.json().required(), // Full JSON output from Comprehend Medical
-      // Extracted entity summary
-      symptoms: a.string().array(), // List of symptoms detected
-      medications: a.string().array(), // List of medications mentioned
-      conditions: a.string().array(), // List of medical conditions
-      procedures: a.string().array(), // List of procedures mentioned
-      // Metadata
-      extractedAt: a.datetime(),
-      comprehendJobId: a.string(),
-      // Relationships
-      interaction: a.belongsTo('ClinicalInteraction', 'clinicalInteractionId'),
-    })
-    .authorization((allow) => [
-      allow.group('MedicalStaff'),
-      allow.group('Psychologist'),
-    ]),
+      // --- Timing ---
+      interactionDate: a.datetime().required(), // ISO-8601 timestamp of the contact
 
-  /**
-   * PatientSummary: Stores AI-generated summaries and diagnostic suggestions from Strands Agents
-   */
-  PatientSummary: a
-    .model({
-      summaryId: a.string().required(),
-      patientRecordId: a.id().required(),
-      // AI-generated content
-      summaryText: a.string().required(), // Generated summary from Strands Agents
-      diagnosticSuggestions: a.string().array(), // Suggested diagnoses
-      riskLevel: a.string(), // Low, Medium, High (for psychological risk assessment)
-      // Agent metadata
-      agentType: a.string(), // summarization-agent, diagnostic-agent
-      agentVersion: a.string(),
-      generatedAt: a.datetime(),
-      // Vector search metadata
-      embeddingId: a.string(), // Reference to OpenSearch vector embedding
-      similarCasesCount: a.integer(), // Number of similar historical cases found
-      // Relationships
-      patientRecord: a.belongsTo('PatientRecord', 'patientRecordId'),
+      // --- Source artefacts ---
+      s3RecordingUrl: a.string(),             // S3 URI of the call recording
+
+      // --- Pipeline outputs ---
+      rawTranscript: a.string(),              // Full text transcript from Transcribe Medical
+
+      medicalEntities: a.json(),              // Comprehend Medical DetectEntitiesV2 response
+                                              // Shape: { entities: [...], unmappedAttributes: [...] }
+
+      icd10Codes: a.json(),                   // Mapped ICD-10 conditions
+                                              // Shape: [{ code: "F32.1", description: "...", confidence: 0.92 }]
+
+      diagnosticSummary: a.json(),            // Bedrock agent structured reasoning
+                                              // Shape: { summary: "...", riskLevel: "...", recommendations: [...] }
     })
     .authorization((allow) => [
       allow.group('MedicalStaff'),
@@ -124,25 +88,18 @@ export const data = defineData({
 });
 
 /**
- * Usage in React Frontend:
- * 
+ * Frontend usage examples:
+ *
  * import { generateClient } from "aws-amplify/data";
  * import type { Schema } from "@/amplify/data/resource";
- * 
+ *
  * const client = generateClient<Schema>();
- * 
- * // Example: List all patient records
- * const { data: patients } = await client.models.PatientRecord.list();
- * 
- * // Example: Create a new clinical interaction
- * await client.models.ClinicalInteraction.create({
- *   interactionId: "INT-12345",
- *   patientRecordId: "patient-id",
- *   audioS3Uri: "s3://bucket/recording.wav",
- *   transcriptText: "Patient reports headache...",
- *   channel: "Voice",
- *   startTime: new Date().toISOString(),
+ *
+ * // List all historical interactions for a patient
+ * const { data: interactions } = await client.models.HistoricalInteraction.list({
+ *   filter: { patientId: { eq: "P-00123" } },
  * });
+ *
+ * // Access the Bedrock diagnostic summary (typed as `any` — shape is AWSJSON)
+ * const summary = interactions[0].diagnosticSummary;
  */
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>

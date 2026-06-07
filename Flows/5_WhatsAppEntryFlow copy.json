@@ -1,0 +1,259 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "wa-set-logging",
+  "Metadata": {
+    "entryPointPosition": { "x": 40, "y": 40 },
+    "ActionMetadata": { ... }   // shortened for brevity
+  },
+  "Actions": [
+    {
+      "Identifier": "wa-set-logging",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": { "LoggingBehavior": "Enable" },
+      "Transitions": { "NextAction": "set-channel-whatsapp" }
+    },
+    {
+      "Identifier": "set-channel-whatsapp",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": [
+          { "Key": "channelType", "Value": "WHATSAPP" },
+          { "Key": "PatientAuthenticated", "Value": "false" }
+        ]
+      },
+      "Transitions": { "NextAction": "invoke-wa-patient-lookup" }
+    },
+    {
+      "Identifier": "invoke-wa-patient-lookup",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:function:PatientLookupLambda",
+        "InvocationTimeLimitSeconds": 5,
+        "LambdaInvocationAttributes": {
+          "patientPhone": "$.CustomerEndpoint.Address",
+          "channel": "WHATSAPP"
+        }
+      },
+      "Transitions": {
+        "NextAction": "check-wa-patient",
+        "Errors": [{ "NextAction": "send-wa-welcome-unknown", "ErrorType": "NoMatchingError" }]
+      }
+    },
+    {
+      "Identifier": "e9914e15-b318-436c-a3e4-a0962b73695f",
+      "Type": "SetFlowLoggingBehavior",
+      "Parameters": { "FlowLoggingBehavior": "Enabled" },
+      "Transitions": { "NextAction": "555d25cf-e24b-44e2-98b7-84102b380e97" }
+    },
+    {
+      "Identifier": "271400d6-ec0b-4553-9de6-5255ffa62ae1",
+      "Type": "UpdateContactAttributes",
+      "Parameters": { "Attributes": { "PatientFirstName": "$.Attributes.FirstName" }, "TargetContact": "Current" },
+      "Transitions": {
+        "NextAction": "f96c68d0-bebc-423f-a33e-f65cff257301",
+        "Errors": [ { "NextAction": "f96c68d0-bebc-423f-a33e-f65cff257301", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "5828c5c2-ce07-4009-be2f-906cb4543c6f",
+      "Type": "Compare",
+      "Parameters": { "ComparisonValue": "$.Channel" },
+      "Transitions": {
+        "NextAction": "f8cf502e-8dfc-48a7-ab7f-42656715e6bf",
+        "Conditions": [
+          { "NextAction": "f8cf502e-8dfc-48a7-ab7f-42656715e6bf", "Condition": { "Operator": "Equals", "Operands": ["VOICE"] } },
+          { "NextAction": "f96c68d0-bebc-423f-a33e-f65cff257301", "Condition": { "Operator": "Equals", "Operands": ["CHAT"] } }
+        ],
+        "Errors": [ { "NextAction": "f8cf502e-8dfc-48a7-ab7f-42656715e6bf", "ErrorType": "NoMatchingCondition" } ]
+      }
+    },
+    {
+      "Identifier": "066b2c79-4fa9-4541-a5f9-5e09a431d751",
+      "Type": "TransferContactToQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/66fad567-0b0d-418e-865a-42319d98f19f" },
+      "Transitions": {
+        "NextAction": "78943b7c-a76a-45e1-9900-266669013fc4",
+        "Errors": [
+          { "NextAction": "78943b7c-a76a-45e1-9900-266669013fc4", "ErrorType": "QueueAtCapacity" },
+          { "NextAction": "78943b7c-a76a-45e1-9900-266669013fc4", "ErrorType": "NoMatchingError" }
+        ]
+      }
+    },
+    {
+      "Identifier": "adf540f0-e94f-4641-9024-61b55dce4cfe",
+      "Type": "Compare",
+      "Parameters": { "ComparisonValue": "$.Lex.SessionAttributes.TargetQueue" },
+      "Transitions": {
+        "NextAction": "7ce450a9-63d4-45ac-89c2-4deb77444835",
+        "Conditions": [
+          { "NextAction": "cba57ba6-f289-4c7d-a535-4538c949f64e", "Condition": { "Operator": "Equals", "Operands": ["Emergency_Crisis"] } },
+          { "NextAction": "b733151b-65b9-4eb0-8e39-b5f36e86a0eb", "Condition": { "Operator": "Equals", "Operands": ["Nursing_Meds"] } },
+          { "NextAction": "cc9b87ca-aaaa-4ded-841b-9ce3306d57ff", "Condition": { "Operator": "Equals", "Operands": ["Scheduling_Desk"] } }
+        ],
+        "Errors": [ { "NextAction": "7ce450a9-63d4-45ac-89c2-4deb77444835", "ErrorType": "NoMatchingCondition" } ]
+      }
+    },
+    {
+      "Identifier": "78943b7c-a76a-45e1-9900-266669013fc4",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    },
+    {
+      "Identifier": "555d25cf-e24b-44e2-98b7-84102b380e97",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": {
+          "BusinessPhoneNumber": "$.CustomerEndpoint.Address",
+          "TenantID": "CLINIC_BH_01",
+          "CustomerPhoneNumber": "$.CustomerEndpoint.Address"
+        },
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "5828c5c2-ce07-4009-be2f-906cb4543c6f",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "f8cf502e-8dfc-48a7-ab7f-42656715e6bf",
+      "Type": "SetContactRecordingBehavior",
+      "Parameters": {
+        "VoiceRecordingBehavior": {
+          "RecordedParticipants": ["Agent", "Customer"],
+          "IVRRecordingBehavior": "Enabled"
+        }
+      },
+      "Transitions": {
+        "NextAction": "271400d6-ec0b-4553-9de6-5255ffa62ae1",
+        "Errors": [
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" },
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "ChannelMismatch" }
+        ]
+      }
+    },
+    {
+      "Identifier": "f3378ad7-0a93-42a8-abf8-f264e66124e2",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/66fad567-0b0d-418e-865a-42319d98f19f" },
+      "Transitions": {
+        "NextAction": "066b2c79-4fa9-4541-a5f9-5e09a431d751",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "f6bbb5f9-965d-46bf-bb07-8f5c5cc4940d",
+      "Type": "UpdateContactEventHooks",
+      "Parameters": { "EventHooks": { "DefaultAgentUI": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/c6c79fec-88d3-44e3-87e6-821eb3547982" } },
+      "Transitions": {
+        "NextAction": "adf540f0-e94f-4641-9024-61b55dce4cfe",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "cba57ba6-f289-4c7d-a535-4538c949f64e",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/f8adc370-4064-42f2-8190-4fe339176dd6" },
+      "Transitions": {
+        "NextAction": "066b2c79-4fa9-4541-a5f9-5e09a431d751",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "3a577306-f795-46b9-beaf-4c25c026a16c",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "Thank you. I have verified your medical profile and am transferring you to the Nursing team now" },
+      "Transitions": {
+        "NextAction": "f3378ad7-0a93-42a8-abf8-f264e66124e2",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "b733151b-65b9-4eb0-8e39-b5f36e86a0eb",
+      "Type": "GetCustomerProfile",
+      "Parameters": {
+        "ProfileRequestData": {
+          "IdentifierName": "_phone",
+          "IdentifierValue": "$.Lex.SessionAttributes.PatientPhoneNumber"
+        },
+        "ProfileResponseData": ["FirstName", "LastName", "PhoneNumber"]
+      },
+      "Transitions": {
+        "NextAction": "3a577306-f795-46b9-beaf-4c25c026a16c",
+        "Errors": [
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" },
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "MultipleFoundError" },
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoneFoundError" }
+        ]
+      }
+    },
+    {
+      "Identifier": "cc9b87ca-aaaa-4ded-841b-9ce3306d57ff",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/b615815a-3d86-46b8-b747-0e538732f546" },
+      "Transitions": {
+        "NextAction": "066b2c79-4fa9-4541-a5f9-5e09a431d751",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "2519cd85-5528-47cd-bbfc-ba6e9b9af7fb",
+      "Type": "UpdateContactAttributes",
+      "Parameters": {
+        "Attributes": {
+          "Reason": "$.Lex.SessionAttributes.TargetQueue",
+          "Symptoms": "$.Lex.SessionAttributes.Symptoms",
+          "PatientPhoneNumber": "$.Lex.SessionAttributes.PatientPhoneNumber"
+        },
+        "TargetContact": "Current"
+      },
+      "Transitions": {
+        "NextAction": "f6bbb5f9-965d-46bf-bb07-8f5c5cc4940d",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "7ce450a9-63d4-45ac-89c2-4deb77444835",
+      "Type": "ConnectParticipantWithLexBot",
+      "Parameters": {
+        "Text": "Thank you for calling the clinic. How can I help you today?",
+        "LexV2Bot": { "AliasArn": "arn:aws:lex:us-east-1:770961405135:bot-alias/WPGCAHKPTZ/BVPUW4UALA" },
+        "LexSessionAttributes": { "phoneNumber": "$.Attributes.CustomerPhoneNumber" }
+      },
+      "Transitions": {
+        "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc",
+        "Errors": [
+          { "NextAction": "5ab8d251-86da-4bf2-acc6-54c792f0c50c", "ErrorType": "NoMatchingCondition" },
+          { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" }
+        ]
+      }
+    },
+    {
+      "Identifier": "b0a55bf6-c965-4540-997f-e65e7a12fecc",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Please hold while I transfer you to the appropriate team."
+      },
+      "Transitions": {
+        "NextAction": "cc9b87ca-aaaa-4ded-841b-9ce3306d57ff",
+        "Errors": [ { "NextAction": "78943b7c-a76a-45e1-9900-266669013fc4", "ErrorType": "NoMatchingError" } ]
+      }
+    },
+    {
+      "Identifier": "5ab8d251-86da-4bf2-acc6-54c792f0c50c",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:amplify-vitereactshadcnts-lexfulfillmentlambda65AA-J5tCmTjCM4MX",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": { "phoneNumber": "$.Attributes.PatientPhoneNumber" },
+        "ResponseValidation": { "ResponseType": "JSON" }
+      },
+      "Transitions": {
+        "NextAction": "2519cd85-5528-47cd-bbfc-ba6e9b9af7fb",
+        "Errors": [ { "NextAction": "b0a55bf6-c965-4540-997f-e65e7a12fecc", "ErrorType": "NoMatchingError" } ]
+      }
+    }
+  ]
+}

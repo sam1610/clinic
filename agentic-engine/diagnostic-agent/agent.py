@@ -1,314 +1,227 @@
-"""Diagnostic Agent using Claude 3.5 Sonnet with OpenSearch tool."""
+"""
+Diagnostic Agent — Step Functions pipeline step.
+
+Receives the enriched post-call payload from the previous pipeline step
+(Comprehend Medical entity extraction), calls Amazon Bedrock / Claude to
+produce a structured clinical diagnostic summary, and returns that summary
+as a plain Python dict so the Step Function can pass it to the next state
+(DynamoDB writer Lambda).
+
+Input contract (from Step Functions):
+{
+  "contactId":        str,   # Amazon Connect contact ID
+  "patientId":        str,   # PatientRecord.patientId
+  "interactionDate":  str,   # ISO-8601 datetime
+  "s3RecordingUrl":   str,   # S3 URI of call recording (optional)
+  "rawTranscript":    str,   # Full text transcript from Transcribe Medical
+  "medicalEntities":  dict,  # Comprehend Medical DetectEntitiesV2 response
+  "icd10Codes":       list   # Mapped ICD-10 codes from the previous step
+}
+
+Output contract (passed to next Step Functions state):
+{
+  ...all input fields preserved...,
+  "diagnosticSummary": {
+    "summary":          str,
+    "riskLevel":        "Low" | "Medium" | "High",
+    "recommendations":  list[str]
+  }
+}
+"""
 
 import json
-import os
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from shared.bedrock_client import BedrockClient
-from shared.dynamodb_client import DynamoDBClient
-from shared.appsync_client import AppSyncClient
-from shared.opensearch_client import OpenSearchClient
+import logging
+import re
+from typing import Any
 
+from shared.bedrock_client import BedrockClient
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# ── Prompt ───────────────────────────────────────────────────────────────────
+
+_SYSTEM_PROMPT = """\
+You are an expert clinical diagnostician and psychologist working in a \
+multi-modal healthcare contact centre (Bahrain / KSA).
+
+You will receive:
+1. A verbatim call transcript (from Amazon Transcribe Medical).
+2. A list of structured medical entities already extracted from that \
+   transcript by AWS Comprehend Medical.
+3. A list of ICD-10 codes mapped from those entities.
+
+Your task is to produce a concise, evidence-based diagnostic summary for \
+the attending medical staff or psychologist who will review the record.
+
+Rules:
+- Base every statement strictly on the provided transcript and entities. \
+  Do NOT invent symptoms, medications, or diagnoses.
+- Flag psychological risk markers (hopelessness, self-harm ideation, \
+  severe anxiety, suicidal language, substance misuse) explicitly.
+- Assign a single risk level: Low | Medium | High.
+- Keep the narrative summary under 300 words.
+- Provide 1–5 actionable recommendations for the care team.
+
+Respond with ONLY a JSON object — no preamble, no markdown fences:
+{
+  "summary": "<narrative summary>",
+  "riskLevel": "Low|Medium|High",
+  "recommendations": ["...", "..."]
+}
+"""
+
+_USER_TEMPLATE = """\
+## Call Transcript
+{transcript}
+
+## Extracted Medical Entities (Comprehend Medical)
+{entities_block}
+
+## Mapped ICD-10 Codes
+{icd10_block}
+
+Produce the diagnostic summary JSON now.
+"""
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _format_entities(medical_entities: dict) -> str:
+    """
+    Render the Comprehend Medical entity list as a compact, readable block
+    so Claude doesn't have to parse raw JSON in its prompt.
+    """
+    entities: list[dict] = medical_entities.get("entities", [])
+    if not entities:
+        return "No entities extracted."
+
+    # Group by category
+    groups: dict[str, list[str]] = {}
+    for e in entities:
+        cat = e.get("Category", "OTHER")
+        groups.setdefault(cat, []).append(
+            f"{e.get('Text', '')} (score={e.get('Score', 0):.2f})"
+        )
+
+    lines = []
+    for cat, items in sorted(groups.items()):
+        lines.append(f"  {cat}: {', '.join(items)}")
+    return "\n".join(lines)
+
+
+def _format_icd10(icd10_codes: list) -> str:
+    if not icd10_codes:
+        return "No ICD-10 codes mapped."
+    return "\n".join(
+        f"  {c.get('code', '?')} — {c.get('description', '')} "
+        f"(confidence={c.get('confidence', 0):.0%})"
+        for c in icd10_codes
+    )
+
+
+def _extract_json(text: str) -> dict:
+    """
+    Pull the first JSON object out of Claude's reply.
+    Handles the case where the model wraps output in markdown fences.
+    """
+    # Strip markdown fences if present
+    cleaned = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+    # Find the outermost {...}
+    start = cleaned.find("{")
+    end   = cleaned.rfind("}") + 1
+    if start == -1 or end == 0:
+        raise ValueError(f"No JSON object found in response: {text[:200]}")
+    return json.loads(cleaned[start:end])
+
+
+# ── Agent class ───────────────────────────────────────────────────────────────
 
 class DiagnosticAgent:
     """
-    AI agent for generating diagnostic suggestions and risk assessments.
+    Step Functions pipeline step: transcript + entities → diagnostic summary.
 
-    Triggered by: Manual invocation or scheduled job
-    Model: Amazon Bedrock (Claude 3.5 Sonnet)
-    Tools: OpenSearch for retrieving similar historical cases
-    Output: Diagnostic findings saved to PatientSummary table
+    The class is intentionally stateless. Each invocation creates a fresh
+    Bedrock call so the Lambda can be reused safely across concurrent
+    Step Function executions.
     """
 
-    SYSTEM_PROMPT = """You are an expert clinical diagnostician and psychologist specializing in comprehensive patient assessment.
-
-Your role is to:
-1. Review extracted clinical entities and patient summaries
-2. Formulate diagnostic suggestions based on symptoms, conditions, and medications
-3. Flag high-risk psychological markers for the attending psychologist
-4. Leverage similar historical cases to improve diagnostic accuracy
-
-Guidelines:
-1. **Evidence-Based**: Base diagnoses on clinical evidence and similar cases
-2. **Differential Diagnosis**: Consider multiple possible diagnoses when appropriate
-3. **Psychological Risk**: Identify markers for depression, anxiety, suicidal ideation, or other mental health concerns
-4. **Severity Assessment**: Evaluate the urgency and severity of the patient's condition
-5. **Recommendations**: Provide clear next steps for the healthcare team
-
-Risk Levels:
-- **Low**: Routine conditions, no immediate concerns, stable mental health
-- **Medium**: Chronic conditions requiring monitoring, mild psychological symptoms
-- **High**: Acute conditions, severe symptoms, or significant psychological risk markers
-
-Psychological Risk Markers:
-- Expressions of hopelessness or worthlessness
-- Suicidal ideation or self-harm mentions
-- Severe anxiety or panic symptoms
-- Significant mood changes or depression indicators
-- Social isolation or withdrawal
-- Substance abuse concerns
-
-You have access to a tool to search for similar historical cases in OpenSearch. Use this tool to find relevant precedents that can inform your diagnostic assessment.
-
-Output Format:
-Provide your response as a JSON object with the following structure:
-{
-  "diagnostic_suggestions": ["diagnosis1", "diagnosis2", ...],
-  "risk_level": "Low|Medium|High",
-  "psychological_risk_markers": ["marker1", "marker2", ...],
-  "differential_diagnoses": ["possible_diagnosis1", "possible_diagnosis2", ...],
-  "recommendations": ["recommendation1", "recommendation2", ...],
-  "similar_cases_analysis": "Analysis of similar historical cases and their relevance"
-}"""
-
-    def __init__(
-        self,
-        region: str = "us-east-1",
-        appsync_endpoint: Optional[str] = None,
-        opensearch_endpoint: Optional[str] = None,
-    ):
-        """
-        Initialize Diagnostic Agent.
-
-        Args:
-            region: AWS region for Bedrock
-            appsync_endpoint: AppSync GraphQL endpoint URL
-            opensearch_endpoint: OpenSearch endpoint URL
-        """
+    def __init__(self, region: str = "us-east-1") -> None:
         self.bedrock = BedrockClient(region=region)
-        self.dynamodb = DynamoDBClient(region=os.environ.get("AWS_REGION", "eu-central-1"))
-        self.appsync = AppSyncClient(
-            appsync_endpoint=appsync_endpoint or os.environ.get("APPSYNC_ENDPOINT"),
-            region=os.environ.get("AWS_REGION", "eu-central-1"),
-        )
 
-        # Initialize OpenSearch if endpoint provided
-        self.opensearch = None
-        if opensearch_endpoint or os.environ.get("OPENSEARCH_ENDPOINT"):
-            self.opensearch = OpenSearchClient(
-                endpoint=opensearch_endpoint or os.environ.get("OPENSEARCH_ENDPOINT"),
-                region=os.environ.get("AWS_REGION", "eu-central-1"),
-            )
-
-        self.clinical_entities_table = os.environ.get(
-            "CLINICAL_ENTITIES_TABLE", "ClinicalEntities"
-        )
-        self.patient_summary_table = os.environ.get(
-            "PATIENT_SUMMARY_TABLE", "PatientSummary"
-        )
-
-    def process_patient_case(
-        self,
-        patient_record_id: str,
-        interaction_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
-        Process a patient case and generate diagnostic assessment.
+        Execute the diagnostic reasoning step.
 
         Args:
-            patient_record_id: Patient record ID
-            interaction_id: Optional specific interaction ID
+            payload: Validated Step Functions input (see module docstring).
 
         Returns:
-            Diagnostic assessment data
+            The same payload with a `diagnosticSummary` key added.
+
+        Raises:
+            ValueError: If required fields are missing from the payload.
+            RuntimeError: If Bedrock returns an unparseable response after retries.
         """
-        print(f"Processing diagnostic assessment for patient: {patient_record_id}")
+        # ── Validate required fields ──────────────────────────────────────
+        required = ("contactId", "patientId", "rawTranscript", "medicalEntities")
+        missing = [f for f in required if not payload.get(f)]
+        if missing:
+            raise ValueError(f"Missing required payload fields: {missing}")
 
-        # Get clinical entities for this patient
-        entities_records = self._get_patient_entities(patient_record_id, interaction_id)
+        transcript: str       = payload["rawTranscript"]
+        medical_entities: dict = payload["medicalEntities"]
+        icd10_codes: list     = payload.get("icd10Codes", [])
 
-        if not entities_records:
-            raise ValueError(f"No clinical entities found for patient: {patient_record_id}")
+        logger.info(
+            "DiagnosticAgent.run | contactId=%s patientId=%s entities=%d icd10=%d",
+            payload["contactId"],
+            payload["patientId"],
+            len(medical_entities.get("entities", [])),
+            len(icd10_codes),
+        )
 
-        # Get existing summaries
-        summaries = self._get_patient_summaries(patient_record_id)
+        # ── Build prompt ──────────────────────────────────────────────────
+        user_message = _USER_TEMPLATE.format(
+            # Truncate to ~6 000 chars to stay within context while leaving
+            # room for the entity/ICD blocks and the model's output.
+            transcript=transcript[:6_000],
+            entities_block=_format_entities(medical_entities),
+            icd10_block=_format_icd10(icd10_codes),
+        )
 
-        # Build user message
-        user_message = self._build_user_message(entities_records, summaries)
-
-        # Define OpenSearch tool
-        tools = self._define_tools()
-
-        # Define tool handlers
-        tool_handlers = {
-            "search_similar_cases": self._search_similar_cases_handler,
-        }
-
-        # Invoke Claude with tool loop
-        print("Invoking Claude 3.5 Sonnet for diagnostic assessment...")
-        response = self.bedrock.invoke_with_tool_loop(
-            system_prompt=self.SYSTEM_PROMPT,
+        # ── Invoke Claude ─────────────────────────────────────────────────
+        logger.info("Invoking Bedrock / Claude for diagnostic summary…")
+        response = self.bedrock.invoke(
+            system_prompt=_SYSTEM_PROMPT,
             user_message=user_message,
-            tools=tools,
-            tool_handlers=tool_handlers,
-            max_iterations=3,
+            max_tokens=1_024,
+            temperature=0.2,   # Low temperature — reproducible clinical output
         )
 
-        # Extract text content
-        diagnostic_text = self.bedrock.extract_text_content(response)
+        raw_text = self.bedrock.extract_text_content(response)
+        logger.info("Bedrock response received (%d chars)", len(raw_text))
 
-        # Parse JSON response
+        # ── Parse response ────────────────────────────────────────────────
         try:
-            diagnostic_data = json.loads(diagnostic_text)
-        except json.JSONDecodeError:
-            # Fallback if Claude doesn't return valid JSON
+            diagnostic_data = _extract_json(raw_text)
+        except (ValueError, json.JSONDecodeError) as exc:
+            logger.warning("JSON parse failed (%s) — using safe fallback", exc)
             diagnostic_data = {
-                "diagnostic_suggestions": ["Review required"],
-                "risk_level": "Medium",
-                "psychological_risk_markers": [],
-                "differential_diagnoses": [],
-                "recommendations": ["Comprehensive evaluation recommended"],
-                "similar_cases_analysis": diagnostic_text,
+                "summary": raw_text[:2_000],   # preserve whatever text came back
+                "riskLevel": "Medium",
+                "recommendations": ["Manual clinical review required."],
             }
 
-        # Generate summary ID
-        summary_id = f"DIAG-{int(datetime.utcnow().timestamp() * 1000)}"
+        # Normalise riskLevel in case Claude drifts
+        risk = diagnostic_data.get("riskLevel", "Medium")
+        if risk not in ("Low", "Medium", "High"):
+            risk = "Medium"
 
-        # Save to PatientSummary table via AppSync
-        print(f"Saving diagnostic assessment to PatientSummary table: {summary_id}")
-        patient_summary = self.appsync.create_patient_summary(
-            summary_id=summary_id,
-            patient_record_id=patient_record_id,
-            summary_text=diagnostic_data.get("similar_cases_analysis", diagnostic_text),
-            diagnostic_suggestions=diagnostic_data.get("diagnostic_suggestions", []),
-            risk_level=diagnostic_data.get("risk_level", "Medium"),
-            agent_type="diagnostic-agent",
-            agent_version="1.0.0",
-            similar_cases_count=len(diagnostic_data.get("similar_cases", [])) if "similar_cases" in diagnostic_data else None,
-        )
-
-        print(f"Diagnostic assessment created successfully: {patient_summary.get('id')}")
-
-        return {
-            "summary_id": summary_id,
-            "patient_record_id": patient_record_id,
-            "risk_level": diagnostic_data.get("risk_level"),
-            "diagnostic_suggestions": diagnostic_data.get("diagnostic_suggestions"),
-            "psychological_risk_markers": diagnostic_data.get("psychological_risk_markers"),
+        diagnostic_summary = {
+            "summary":         diagnostic_data.get("summary", ""),
+            "riskLevel":       risk,
+            "recommendations": diagnostic_data.get("recommendations", []),
         }
 
-    def _get_patient_entities(
-        self,
-        patient_record_id: str,
-        interaction_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """Get clinical entities for a patient."""
-        # This would typically query by patient_record_id
-        # For now, we'll scan the table (in production, use a GSI)
-        entities = self.dynamodb.scan_table(
-            table_name=self.clinical_entities_table,
-            limit=10,
-        )
-        return entities
-
-    def _get_patient_summaries(self, patient_record_id: str) -> List[Dict[str, Any]]:
-        """Get existing summaries for a patient."""
-        summaries = self.dynamodb.scan_table(
-            table_name=self.patient_summary_table,
-            limit=5,
-        )
-        return summaries
-
-    def _build_user_message(
-        self,
-        entities_records: List[Dict[str, Any]],
-        summaries: List[Dict[str, Any]],
-    ) -> str:
-        """Build user message for Claude."""
-        message = "Please provide a comprehensive diagnostic assessment based on the following patient data:\n\n"
-
-        # Add entities
-        message += "**Clinical Entities:**\n"
-        for i, entities in enumerate(entities_records, 1):
-            message += f"\nInteraction {i}:\n"
-            message += f"- Symptoms: {', '.join(entities.get('symptoms', []))}\n"
-            message += f"- Medications: {', '.join(entities.get('medications', []))}\n"
-            message += f"- Conditions: {', '.join(entities.get('conditions', []))}\n"
-            message += f"- Procedures: {', '.join(entities.get('procedures', []))}\n"
-
-        # Add existing summaries
-        if summaries:
-            message += "\n**Previous Summaries:**\n"
-            for i, summary in enumerate(summaries, 1):
-                message += f"\nSummary {i}:\n"
-                message += f"{summary.get('summaryText', '')[:500]}\n"
-
-        message += "\nPlease use the search_similar_cases tool to find relevant historical cases, then provide your diagnostic assessment in JSON format."
-
-        return message
-
-    def _define_tools(self) -> List[Dict[str, Any]]:
-        """Define tools for Claude."""
-        return [
-            {
-                "name": "search_similar_cases",
-                "description": "Search for similar historical cases in OpenSearch based on symptoms. Use this to find relevant precedents that can inform diagnostic assessment.",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "symptoms": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of symptoms to search for",
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of cases to return (default: 5)",
-                            "default": 5,
-                        },
-                    },
-                    "required": ["symptoms"],
-                },
-            }
-        ]
-
-    def _search_similar_cases_handler(
-        self,
-        symptoms: List[str],
-        limit: int = 5,
-    ) -> Dict[str, Any]:
-        """
-        Tool handler for searching similar cases.
-
-        Args:
-            symptoms: List of symptoms to search for
-            limit: Maximum number of results
-
-        Returns:
-            Similar cases data
-        """
-        if not self.opensearch:
-            return {
-                "error": "OpenSearch not configured",
-                "cases": [],
-            }
-
-        print(f"Searching for similar cases with symptoms: {symptoms}")
-
-        try:
-            results = self.opensearch.search_by_symptoms(symptoms, k=limit)
-
-            cases = []
-            for result in results:
-                source = result.get("source", {})
-                cases.append(
-                    {
-                        "case_id": result.get("id"),
-                        "similarity_score": result.get("score"),
-                        "symptoms": source.get("symptoms", []),
-                        "diagnosis": source.get("diagnosis", "Unknown"),
-                        "summary": source.get("summary_text", "")[:200],
-                    }
-                )
-
-            return {
-                "cases": cases,
-                "count": len(cases),
-            }
-
-        except Exception as e:
-            print(f"Error searching similar cases: {e}")
-            return {
-                "error": str(e),
-                "cases": [],
-            }
+        # ── Return enriched payload ───────────────────────────────────────
+        return {**payload, "diagnosticSummary": diagnostic_summary}

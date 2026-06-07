@@ -1,113 +1,90 @@
+/**
+ * transcribe-medical
+ *
+ * Step Functions Task — Step 1 of the Post-Call Processing pipeline.
+ *
+ * Receives the CTR payload from the state machine, extracts the
+ * recording S3 URI, starts an async Transcribe Medical job, and returns
+ * the job name so the Wait state can poll for completion.
+ *
+ * Input (from EventBridge CTR → Step Functions):
+ * {
+ *   contactId:     string,
+ *   recordingKey:  string,       // S3 object key of the .wav recording
+ *   recordingBucket: string,
+ *   patientId:     string,
+ *   queueName:     string,
+ *   agentUsername: string,
+ *   channel:       string
+ * }
+ *
+ * Output:
+ * {
+ *   ...input (pass-through),
+ *   transcribeJobName: string,
+ *   transcriptOutputKey: string
+ * }
+ */
 import {
   TranscribeClient,
   StartMedicalTranscriptionJobCommand,
-  StartMedicalTranscriptionJobCommandInput,
-  MedicalTranscriptionJobSummary,
+  MedicalMediaFormat,
+  Specialty,
+  Type,
 } from '@aws-sdk/client-transcribe';
-import { EventBridgeEvent } from 'aws-lambda';
 
-const transcribeClient = new TranscribeClient({});
+const transcribe = new TranscribeClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
-interface S3ObjectCreatedDetail {
-  version: string;
-  bucket: {
-    name: string;
-  };
-  object: {
-    key: string;
-    size: number;
-    etag: string;
-    sequencer: string;
-  };
-  'request-id': string;
-  requester: string;
+const OUTPUT_BUCKET = process.env.TRANSCRIBE_OUTPUT_BUCKET!;
+const OUTPUT_PREFIX = process.env.TRANSCRIBE_OUTPUT_PREFIX || 'transcripts/';
+
+export interface TranscribeInput {
+  contactId: string;
+  recordingKey: string;
+  recordingBucket: string;
+  patientId: string;
+  queueName?: string;
+  agentUsername?: string;
+  channel?: string;
+  riskLevel?: string;
 }
 
-/**
- * Lambda handler for initiating Amazon Transcribe Medical jobs
- * 
- * Triggered by: EventBridge rule when new recording is uploaded to S3
- * 
- * Process:
- * 1. Extract S3 object details from EventBridge event
- * 2. Generate unique job name
- * 3. Start Transcribe Medical job with medical specialty
- * 4. Job completion triggers next Lambda via EventBridge
- */
-export const handler = async (
-  event: EventBridgeEvent<'Object Created', S3ObjectCreatedDetail>
-): Promise<void> => {
-  console.log('Received S3 object created event:', JSON.stringify(event, null, 2));
+export const handler = async (input: TranscribeInput) => {
+  console.log('TranscribeMedical input:', JSON.stringify(input));
 
-  const bucketName = event.detail.bucket.name;
-  const objectKey = event.detail.object.key;
+  const { contactId, recordingKey, recordingBucket } = input;
 
-  // Generate unique job name (max 200 chars, alphanumeric and hyphens only)
   const timestamp = Date.now();
-  const sanitizedKey = objectKey
-    .replace(/[^a-zA-Z0-9-]/g, '-')
-    .substring(0, 150);
-  const jobName = `medical-transcription-${sanitizedKey}-${timestamp}`;
+  // Job names: max 200 chars, alphanumeric + hyphens only
+  const safeContactId = contactId.replace(/[^a-zA-Z0-9]/g, '-').slice(0, 60);
+  const jobName = `medical-${safeContactId}-${timestamp}`;
 
-  // Extract patient/contact metadata from object key if available
-  // Expected format: recordings/{contactId}/{timestamp}.wav
-  const keyParts = objectKey.split('/');
-  const contactId = keyParts.length > 1 ? keyParts[1] : 'unknown';
+  const transcriptOutputKey = `${OUTPUT_PREFIX}${contactId}/${timestamp}.json`;
+  const mediaUri = `s3://${recordingBucket}/${recordingKey}`;
 
-  const s3Uri = `s3://${bucketName}/${objectKey}`;
-  const outputBucket = process.env.TRANSCRIBE_OUTPUT_BUCKET!;
-  const outputPrefix = process.env.TRANSCRIBE_OUTPUT_PREFIX || 'transcripts/';
-
-  console.log(`Starting Transcribe Medical job: ${jobName}`);
-  console.log(`Input: ${s3Uri}`);
-  console.log(`Output: s3://${outputBucket}/${outputPrefix}`);
-
-  try {
-    const params: StartMedicalTranscriptionJobCommandInput = {
+  await transcribe.send(
+    new StartMedicalTranscriptionJobCommand({
       MedicalTranscriptionJobName: jobName,
-      LanguageCode: 'en-US', // Adjust based on your region (en-US, en-GB, etc.)
-      MediaFormat: 'wav', // Adjust based on your audio format (wav, mp3, mp4, flac)
-      Media: {
-        MediaFileUri: s3Uri,
-      },
-      OutputBucketName: outputBucket,
-      OutputKey: `${outputPrefix}${contactId}/${timestamp}.json`,
-      Specialty: 'PRIMARYCARE', // Options: PRIMARYCARE, CARDIOLOGY, NEUROLOGY, ONCOLOGY, RADIOLOGY, UROLOGY
-      Type: 'CONVERSATION', // CONVERSATION or DICTATION
+      LanguageCode: 'en-US',
+      MediaFormat: 'wav' as MedicalMediaFormat,
+      Media: { MediaFileUri: mediaUri },
+      OutputBucketName: OUTPUT_BUCKET,
+      OutputKey: transcriptOutputKey,
+      Specialty: 'PRIMARYCARE' as Specialty,
+      Type: 'CONVERSATION' as Type,
       Settings: {
         ShowSpeakerLabels: true,
-        MaxSpeakerLabels: 2, // Patient and clinician
-        ChannelIdentification: false,
-        ShowAlternatives: false,
+        MaxSpeakerLabels: 2,
       },
-      // Optional: Add tags for tracking
-      Tags: [
-        {
-          Key: 'ContactId',
-          Value: contactId,
-        },
-        {
-          Key: 'Source',
-          Value: 'AmazonConnect',
-        },
-        {
-          Key: 'ProcessingStage',
-          Value: 'Transcription',
-        },
-      ],
-    };
+    })
+  );
 
-    const command = new StartMedicalTranscriptionJobCommand(params);
-    const response = await transcribeClient.send(command);
+  console.log(`Started Transcribe job: ${jobName}`);
 
-    console.log('Transcribe Medical job started successfully:', {
-      jobName: response.MedicalTranscriptionJob?.MedicalTranscriptionJobName,
-      status: response.MedicalTranscriptionJob?.TranscriptionJobStatus,
-    });
-
-    // EventBridge will automatically trigger the next Lambda when job completes
-  } catch (error) {
-    console.error('Error starting Transcribe Medical job:', error);
-    throw error;
-  }
+  return {
+    ...input,
+    transcribeJobName: jobName,
+    transcriptOutputKey,
+    transcriptOutputBucket: OUTPUT_BUCKET,
+  };
 };

@@ -1,19 +1,4 @@
-/**
- * useConnectCCP
- *
- * Initialises the Amazon Connect Streams CCP.
- *
- * Unified-auth flow:
- *   1. Fetch the Cognito id_token from the active Amplify session.
- *   2. Pass it as `loginToken` to initCCP so Connect skips its own login form.
- *   3. If no token is available yet, fall back to loginPopup (safe fallback).
- *
- * This requires the Connect instance to have Cognito configured as an
- * external IdP (SAML). See README for setup instructions.
- */
-
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { fetchAuthSession } from 'aws-amplify/auth';
 import 'amazon-connect-streams';
 
 export interface ConnectConfig {
@@ -43,7 +28,6 @@ export interface UseConnectCCPReturn {
   agentState: AgentState | null;
   contact: ContactInfo | null;
   error: string | null;
-  /** Call to manually trigger CCP initialisation (e.g. after user clicks button) */
   initCCP: () => void;
 }
 
@@ -57,27 +41,17 @@ export function useConnectCCP(
   const [error, setError] = useState<string | null>(null);
   const initialisedRef = useRef(false);
 
-  const initCCP = useCallback(async () => {
+  const initCCP = useCallback(() => {
     if (!containerRef.current || initialisedRef.current) return;
     if (!config.ccpUrl) return;
 
     try {
       initialisedRef.current = true;
 
-      // Attempt to get Cognito token for SSO passthrough
-      let loginToken: string | undefined;
-      try {
-        const session = await fetchAuthSession();
-        // Use the id_token — Connect SAML federation expects this
-        loginToken = session.tokens?.idToken?.toString();
-      } catch {
-        // Not signed in yet or session expired — fall back to popup login
-        loginToken = undefined;
-      }
-
       const initOptions: connect.InitCCPOptions = {
         ccpUrl: config.ccpUrl,
-        loginPopup: loginToken ? false : (config.loginPopup ?? true),
+        // ALWAYS use the popup for native Connect users (Agent1, psy)
+        loginPopup: config.loginPopup ?? true,
         loginPopupAutoClose: config.loginPopupAutoClose ?? true,
         softphone: {
           allowFramedSoftphone: config.softphone?.allowFramedSoftphone ?? true,
@@ -85,14 +59,6 @@ export function useConnectCCP(
         },
         storageAccess: { canRequest: true },
       };
-
-      // If we have a token, append it to the CCP URL for federated SSO
-      // Connect reads `?token=<jwt>` and skips the login screen
-      if (loginToken) {
-        const url = new URL(config.ccpUrl);
-        url.searchParams.set('token', loginToken);
-        (initOptions as any).ccpUrl = url.toString();
-      }
 
       connect.core.initCCP(containerRef.current, initOptions);
 
@@ -132,7 +98,6 @@ export function useConnectCCP(
     }
   }, [containerRef, config]);
 
-  // Auto-init when the container becomes available
   useEffect(() => {
     if (config.ccpUrl && containerRef.current && !initialisedRef.current) {
       initCCP();

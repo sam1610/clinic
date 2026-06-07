@@ -1,19 +1,30 @@
 [project]
 name = "agentic-engine"
-version = "0.1.0"
-description = "AI agents for clinical summarization and diagnostics using Strands SDK"
+version = "0.2.0"
+description = "Diagnostic Agent for the asynchronous Step Functions medical pipeline"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
+
+# Runtime dependencies — kept minimal for Lambda cold-start performance.
+# requests and opensearch-py have been removed (no AppSync / OpenSearch calls).
 dependencies = [
-    "boto3>=1.34.0",
-    "botocore>=1.34.0",
-    "pydantic>=2.0.0",
+    "boto3>=1.34.0,<2",
+    "botocore>=1.34.0,<2",
     "python-dotenv>=1.0.0",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "pytest>=7.0.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
+    "pytest>=8.0.0",
+    "pytest-mock>=3.14.0",
+    "black>=24.0.0",
+    "ruff>=0.4.0",
+    "moto[bedrock,dynamodb]>=5.0.0",   # AWS mocking for unit tests
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]

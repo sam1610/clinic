@@ -1,17 +1,13 @@
 {
   "name": "transcribe-medical-function",
   "version": "1.0.0",
-  "description": "Lambda function to initiate Amazon Transcribe Medical jobs",
+  "description": "Step Functions task: starts Amazon Transcribe Medical job",
   "main": "index.js",
-  "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w"
-  },
+  "scripts": { "build": "tsc" },
   "dependencies": {
     "@aws-sdk/client-transcribe": "^3.600.0"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   }
