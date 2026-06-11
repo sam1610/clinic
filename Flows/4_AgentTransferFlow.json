@@ -1,363 +1,124 @@
 {
   "Version": "2019-10-30",
-  "StartAction": "transfer-set-logging",
+  "StartAction": "44444444-0000-0000-0000-000000000001",
   "Metadata": {
     "entryPointPosition": {
       "x": 40,
       "y": 40
     },
     "ActionMetadata": {
-      "transfer-set-logging": {
-        "position": {
-          "x": 40,
-          "y": 40
+      "44444444-0000-0000-0000-000000000001": {
+        "position": { "x": 40, "y": 40 }
+      },
+      "44444444-0000-0000-0000-000000000002": {
+        "position": { "x": 300, "y": 40 }
+      },
+      "44444444-0000-0000-0000-000000000003": {
+        "position": { "x": 580, "y": 40 },
+        "parameters": {
+          "QueueId": { "displayName": "GeneralInfoQueue" }
         }
       },
-      "invoke-context-packager": {
-        "position": {
-          "x": 220,
-          "y": 40
-        }
+      "44444444-0000-0000-0000-000000000004": {
+        "position": { "x": 860, "y": 40 }
       },
-      "set-packaged-context": {
-        "position": {
-          "x": 440,
-          "y": 40
-        }
+      "44444444-0000-0000-0000-000000000005": {
+        "position": { "x": 860, "y": 200 }
       },
-      "check-risk-level": {
-        "position": {
-          "x": 660,
-          "y": 40
-        }
-      },
-      "play-crisis-holding": {
-        "position": {
-          "x": 880,
-          "y": 200
-        }
-      },
-      "play-transfer-hold": {
-        "position": {
-          "x": 880,
-          "y": 40
-        }
-      },
-      "set-whisper-flow": {
-        "position": {
-          "x": 1100,
-          "y": 40
-        }
-      },
-      "route-to-crisis-queue": {
-        "position": {
-          "x": 1300,
-          "y": 200
-        }
-      },
-      "route-to-medical-queue": {
-        "position": {
-          "x": 1300,
-          "y": 120
-        }
-      },
-      "route-to-general-queue": {
-        "position": {
-          "x": 1300,
-          "y": 40
-        }
-      },
-      "play-transfer-error": {
-        "position": {
-          "x": 1500,
-          "y": 320
-        }
-      },
-      "disconnect-transfer": {
-        "position": {
-          "x": 1700,
-          "y": 320
-        }
+      "44444444-0000-0000-0000-000000000006": {
+        "position": { "x": 1140, "y": 40 }
       }
-    }
+    },
+    "Annotations": [],
+    "name": "04_NativeAgentTransferFlow",
+    "description": "Simplified native transfer flow",
+    "type": "contactFlow",
+    "status": "SAVED",
+    "hash": {}
   },
   "Actions": [
     {
-      "Identifier": "transfer-set-logging",
-      "Type": "UpdateFlowLoggingBehavior",
       "Parameters": {
         "FlowLoggingBehavior": "Enabled"
       },
+      "Identifier": "44444444-0000-0000-0000-000000000001",
+      "Type": "UpdateFlowLoggingBehavior",
       "Transitions": {
-        "NextAction": "invoke-context-packager",
-        "Errors": []
+        "NextAction": "44444444-0000-0000-0000-000000000002"
       }
     },
     {
-      "Identifier": "invoke-context-packager",
-      "Type": "InvokeLambdaFunction",
       "Parameters": {
-        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
-        "InvocationTimeLimitSeconds": "5",
-        "LambdaInvocationAttributes": {
-          "patientId": "$.Attributes.patientId",
-          "isAuthenticated": "$.Attributes.PatientAuthenticated",
-          "riskLevel": "$.Attributes.riskLevel",
-          "channelType": "$.Attributes.channelType",
-          "sessionType": "$.Attributes.sessionType",
-          "agentType": "$.Attributes.agentType",
-          "contactId": "$.ContactId",
-          "authSessionToken": "$.Attributes.authSessionToken"
-        },
-        "ResponseValidation": {
-          "ResponseType": "JSON"
-        }
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Please hold while I connect you to a clinical specialist."
       },
+      "Identifier": "44444444-0000-0000-0000-000000000002",
+      "Type": "MessageParticipant",
       "Transitions": {
-        "NextAction": "set-packaged-context",
+        "NextAction": "44444444-0000-0000-0000-000000000003",
         "Errors": [
           {
-            "NextAction": "set-whisper-flow",
+            "NextAction": "44444444-0000-0000-0000-000000000003",
             "ErrorType": "NoMatchingError"
           }
         ]
       }
     },
     {
-      "Identifier": "set-packaged-context",
-      "Type": "UpdateContactAttributes",
       "Parameters": {
-        "Attributes": [
-          {
-            "Key": "patientSummary",
-            "Value": "$.External.patientSummary",
-            "Namespace": "External"
-          },
-          {
-            "Key": "recentInteractions",
-            "Value": "$.External.recentInteractions",
-            "Namespace": "External"
-          },
-          {
-            "Key": "activePrescriptions",
-            "Value": "$.External.activePrescriptions",
-            "Namespace": "External"
-          },
-          {
-            "Key": "conversationHistory",
-            "Value": "$.External.conversationHistory",
-            "Namespace": "External"
-          },
-          {
-            "Key": "transferReason",
-            "Value": "$.External.transferReason",
-            "Namespace": "External"
-          }
-        ],
-        "TargetContact": "Current"
+        "QueueId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/queue/66fad567-0b0d-418e-865a-42319d98f19f"
       },
+      "Identifier": "44444444-0000-0000-0000-000000000003",
+      "Type": "UpdateContactTargetQueue",
       "Transitions": {
-        "NextAction": "check-risk-level",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "check-risk-level",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.Attributes.riskLevel"
-      },
-      "Transitions": {
-        "NextAction": "play-transfer-hold",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "play-crisis-holding",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "CRISIS"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-transfer-hold",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "HIGH"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-transfer-hold",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "MEDIUM"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-transfer-hold",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "LOW"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "play-crisis-holding",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "I can hear that you are going through a very difficult moment. You are not alone. I am connecting you immediately to a specialist who can help. Please stay on the line.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "set-whisper-flow",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "play-transfer-hold",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "I am now connecting you to a specialist agent who has full context of our conversation. You will not need to repeat anything. Please hold for a moment.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "set-whisper-flow",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "set-whisper-flow",
-      "Type": "UpdateContactAttributes",
-      "Parameters": {
-        "Attributes": [
-          {
-            "Key": "whisperEnabled",
-            "Value": "true"
-          }
-        ],
-        "TargetContact": "Current"
-      },
-      "Transitions": {
-        "NextAction": "route-to-medical-queue",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "route-to-crisis-queue",
-      "Type": "TransferContactToQueue",
-      "Parameters": {
-        "QueueLookupCode": "UrgentCrisisQueue",
-        "AgentWhisperFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/ac836471-28e2-414f-adff-4d321fefdec8"
-      },
-      "Transitions": {
-        "NextAction": "play-transfer-error",
+        "NextAction": "44444444-0000-0000-0000-000000000004",
         "Errors": [
           {
-            "NextAction": "play-transfer-error",
-            "ErrorType": "QueueAtCapacity"
+            "NextAction": "44444444-0000-0000-0000-000000000004",
+            "ErrorType": "NoMatchingError"
           }
         ]
       }
     },
     {
-      "Identifier": "route-to-medical-queue",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.Attributes.riskLevel"
-      },
-      "Transitions": {
-        "NextAction": "route-to-general-queue",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "route-to-crisis-queue",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "CRISIS"
-              ]
-            }
-          },
-          {
-            "NextAction": "transfer-medical",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "HIGH"
-              ]
-            }
-          },
-          {
-            "NextAction": "transfer-medical",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "MEDIUM"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "transfer-medical",
-      "Type": "TransferContactToQueue",
-      "Parameters": {
-        "QueueLookupCode": "MedicalSupportQueue",
-        "AgentWhisperFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/ac836471-28e2-414f-adff-4d321fefdec8"
-      },
-      "Transitions": {
-        "NextAction": "play-transfer-error",
-        "Errors": [
-          {
-            "NextAction": "route-to-general-queue",
-            "ErrorType": "QueueAtCapacity"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "route-to-general-queue",
-      "Type": "TransferContactToQueue",
-      "Parameters": {
-        "QueueLookupCode": "GeneralInfoQueue",
-        "AgentWhisperFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/ac836471-28e2-414f-adff-4d321fefdec8"
-      },
-      "Transitions": {
-        "NextAction": "play-transfer-error",
-        "Errors": [
-          {
-            "NextAction": "play-transfer-error",
-            "ErrorType": "QueueAtCapacity"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "play-transfer-error",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "All agents are currently busy. Please call back shortly or leave a message. We apologize for the inconvenience.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "disconnect-transfer",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "disconnect-transfer",
-      "Type": "DisconnectParticipant",
       "Parameters": {},
+      "Identifier": "44444444-0000-0000-0000-000000000004",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "44444444-0000-0000-0000-000000000006",
+        "Errors": [
+          {
+            "NextAction": "44444444-0000-0000-0000-000000000005",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "44444444-0000-0000-0000-000000000005",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "All agents are currently busy. Please call back shortly."
+      },
+      "Identifier": "44444444-0000-0000-0000-000000000005",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "44444444-0000-0000-0000-000000000006",
+        "Errors": [
+          {
+            "NextAction": "44444444-0000-0000-0000-000000000006",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "44444444-0000-0000-0000-000000000006",
+      "Type": "DisconnectParticipant",
       "Transitions": {}
     }
   ]

@@ -126,6 +126,7 @@ export function AgentDashboard() {
   const [patients, setPatients]       = useState<PatientRecord[]>([]);
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [loadError, setLoadError]     = useState<string | null>(null);
+  const [ccpOpen, setCcpOpen]         = useState(true);
 
   // Load patient roster on mount (single LIST query — no subscription)
   useEffect(() => {
@@ -157,11 +158,16 @@ export function AgentDashboard() {
   const activePatient = patients.find((p) => p.id === selectedId) ?? null;
 
   return (
-    /* Full-height flex row — fills the space left by App.tsx's top bar */
-    <div className="flex flex-1 min-h-0 overflow-hidden">
+    /*
+     * Full-height flex row.
+     * overflow-visible is intentional on the outer wrapper so the collapse
+     * tab button (which is positioned to protrude from the sidebar) is not
+     * clipped. Each inner column manages its own overflow.
+     */
+    <div className="flex flex-1 min-h-0 overflow-visible relative">
 
-      {/* ── Main content: 75% ──────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden" style={{ width: '75%' }}>
+      {/* ── Main content ───────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* Sub-header: title + patient search */}
         <header className="px-6 py-4 border-b border-gray-200 bg-white shrink-0">
@@ -209,14 +215,47 @@ export function AgentDashboard() {
         </main>
       </div>
 
-      {/* ── Right sidebar: CCP (25%) ────────────────────────────────────── */}
-      <aside
-        className="shrink-0 border-l border-gray-200 bg-white overflow-hidden"
-        style={{ width: '25%', minWidth: '280px', maxWidth: '400px' }}
-        aria-label="Call Control Panel"
+      {/* ── Right sidebar: CCP ─────────────────────────────────────────── */}
+      {/*
+       * The sidebar + its tab are wrapped in a relative container so the
+       * tab button can use absolute positioning to sit on the left edge of
+       * the sidebar (visually overlapping the main content) without being
+       * clipped by overflow:hidden on the sidebar itself.
+       */}
+      <div
+        className="relative shrink-0 flex"
+        style={{
+          width: ccpOpen ? 'clamp(280px, 25%, 400px)' : '0px',
+          transition: 'width 300ms ease-in-out',
+        }}
       >
-        <CallControlPanel />
-      </aside>
+        {/* Collapse / expand tab — sits just outside the left edge of the sidebar */}
+        <button
+          onClick={() => setCcpOpen((v) => !v)}
+          aria-label={ccpOpen ? 'Collapse Call Control Panel' : 'Expand Call Control Panel'}
+          title={ccpOpen ? 'Collapse' : 'Call Control Panel'}
+          style={{ left: '-2rem' }}   /* 2rem = 32px = w-8 */
+          className="
+            absolute top-20 w-8 h-16 z-20
+            rounded-l-lg bg-indigo-600 hover:bg-indigo-700
+            text-white flex items-center justify-center
+            shadow-md transition-colors
+          "
+        >
+          <span className="text-sm select-none" aria-hidden="true">
+            {ccpOpen ? '▶' : '◀'}
+          </span>
+        </button>
+
+        {/* Sidebar body — only rendered when open to avoid invisible CCP init */}
+        <div
+          className="flex flex-col flex-1 overflow-hidden border-l border-gray-200 bg-white shadow-xl"
+          aria-label="Call Control Panel"
+          style={{ visibility: ccpOpen ? 'visible' : 'hidden' }}
+        >
+          <CallControlPanel />
+        </div>
+      </div>
 
     </div>
   );

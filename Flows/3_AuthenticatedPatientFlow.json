@@ -1,684 +1,142 @@
 {
   "Version": "2019-10-30",
-  "StartAction": "auth-set-logging",
+  "StartAction": "33333333-0000-0000-0000-000000000001",
   "Metadata": {
-    "entryPointPosition": {
-      "x": 40,
-      "y": 40
-    },
+    "type": "contactFlow",
+    "entryPointPosition": { "x": 40, "y": 40 },
     "ActionMetadata": {
-      "auth-set-logging": {
-        "position": {
-          "x": 40,
-          "y": 40
-        }
-      },
-      "check-already-authed": {
-        "position": {
-          "x": 220,
-          "y": 40
-        }
-      },
-      "check-patient-registered": {
-        "position": {
-          "x": 400,
-          "y": 40
-        }
-      },
-      "play-not-registered": {
-        "position": {
-          "x": 400,
-          "y": 200
-        }
-      },
-      "invoke-otp-generate": {
-        "position": {
-          "x": 600,
-          "y": 40
-        }
-      },
-      "play-otp-sent": {
-        "position": {
-          "x": 800,
-          "y": 40
-        }
-      },
-      "get-otp-input": {
-        "position": {
-          "x": 1000,
-          "y": 40
-        }
-      },
-      "invoke-otp-validate": {
-        "position": {
-          "x": 1200,
-          "y": 40
-        }
-      },
-      "check-otp-result": {
-        "position": {
-          "x": 1400,
-          "y": 40
-        }
-      },
-      "check-otp-attempts": {
-        "position": {
-          "x": 1400,
-          "y": 200
-        }
-      },
-      "set-auth-true": {
-        "position": {
-          "x": 1600,
-          "y": 40
-        }
-      },
-      "play-auth-success": {
-        "position": {
-          "x": 1800,
-          "y": 40
-        }
-      },
-      "play-otp-wrong": {
-        "position": {
-          "x": 1600,
-          "y": 200
-        }
-      },
-      "play-blocked": {
-        "position": {
-          "x": 1800,
-          "y": 320
-        }
-      },
-      "bedrock-supervisor-loop": {
-        "position": {
-          "x": 2000,
-          "y": 40
-        }
-      },
-      "invoke-bedrock-supervisor": {
-        "position": {
-          "x": 2200,
-          "y": 40
-        }
-      },
-      "check-supervisor-action": {
-        "position": {
-          "x": 2400,
-          "y": 40
-        }
-      },
-      "play-supervisor-response": {
-        "position": {
-          "x": 2600,
-          "y": 40
-        }
-      },
-      "check-continue-auth": {
-        "position": {
-          "x": 2800,
-          "y": 40
-        }
-      },
-      "check-crisis-flag": {
-        "position": {
-          "x": 2400,
-          "y": 200
-        }
-      },
-      "invoke-crisis-escalation": {
-        "position": {
-          "x": 2600,
-          "y": 200
-        }
-      },
-      "transfer-crisis-queue": {
-        "position": {
-          "x": 2800,
-          "y": 200
-        }
-      },
-      "transfer-agent-flow": {
-        "position": {
-          "x": 2800,
-          "y": 120
-        }
-      },
-      "play-auth-error": {
-        "position": {
-          "x": 2800,
-          "y": 400
-        }
-      },
-      "play-auth-goodbye": {
-        "position": {
-          "x": 3000,
-          "y": 40
-        }
-      },
-      "disconnect-auth": {
-        "position": {
-          "x": 3200,
-          "y": 40
-        }
-      }
+      "33333333-0000-0000-0000-000000000001": { "position": { "x": 40, "y": 40 } },
+      "33333333-0000-0000-0000-000000000002": { "position": { "x": 220, "y": 40 } },
+      "33333333-0000-0000-0000-000000000003": { "position": { "x": 220, "y": 200 } },
+      "33333333-0000-0000-0000-000000000004": { "position": { "x": 440, "y": 40 } },
+      "33333333-0000-0000-0000-000000000005": { "position": { "x": 660, "y": 40 } },
+      "33333333-0000-0000-0000-000000000006": { "position": { "x": 880, "y": 40 } },
+      "33333333-0000-0000-0000-000000000007": { "position": { "x": 1100, "y": 40 } },
+      "33333333-0000-0000-0000-000000000008": { "position": { "x": 1300, "y": 40 } },
+      "33333333-0000-0000-0000-000000000009": { "position": { "x": 1500, "y": 40 } },
+      "33333333-0000-0000-0000-000000000010": { "position": { "x": 1700, "y": 40 } },
+      "33333333-0000-0000-0000-000000000011": { "position": { "x": 1900, "y": 40 } },
+      "33333333-0000-0000-0000-000000000012": { "position": { "x": 2100, "y": 40 } },
+      "33333333-0000-0000-0000-000000000013": { "position": { "x": 2100, "y": 200 } },
+      "33333333-0000-0000-0000-000000000014": { "position": { "x": 2300, "y": 40 } }
     }
   },
   "Actions": [
     {
-      "Identifier": "auth-set-logging",
+      "Identifier": "33333333-0000-0000-0000-000000000001",
       "Type": "UpdateFlowLoggingBehavior",
-      "Parameters": {
-        "FlowLoggingBehavior": "Enabled"
-      },
-      "Transitions": {
-        "NextAction": "check-already-authed",
-        "Errors": []
-      }
+      "Parameters": { "FlowLoggingBehavior": "Enabled" },
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000002", "Errors": [] }
     },
     {
-      "Identifier": "check-already-authed",
+      "Identifier": "33333333-0000-0000-0000-000000000002",
       "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.Attributes.PatientAuthenticated"
-      },
+      "Parameters": { "ComparisonValue": "$.Attributes.PatientAuthenticated" },
       "Transitions": {
-        "NextAction": "check-patient-registered",
+        "NextAction": "33333333-0000-0000-0000-000000000004",
         "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "bedrock-supervisor-loop",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "true"
-              ]
-            }
-          }
-        ]
+        "Conditions": [{ "NextAction": "33333333-0000-0000-0000-000000000010", "Condition": { "Operator": "Equals", "Operands": ["true"] } }]
       }
     },
     {
-      "Identifier": "check-patient-registered",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.Attributes.patientId"
-      },
-      "Transitions": {
-        "NextAction": "play-not-registered",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "invoke-otp-generate",
-            "Condition": {
-              "Operator": "NotEqual",
-              "Operands": [
-                "UNKNOWN"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "play-not-registered",
+      "Identifier": "33333333-0000-0000-0000-000000000003",
       "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "We could not find a registered account for your phone number. Please contact the clinic reception to register. Thank you.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "disconnect-auth",
-        "Errors": []
-      }
+      "Parameters": { "Text": "An error occurred during authentication. Please hold for an agent.", "TextToSpeechType": "text" },
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000012", "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000014", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "invoke-otp-generate",
+      "Identifier": "33333333-0000-0000-0000-000000000004",
       "Type": "InvokeLambdaFunction",
       "Parameters": {
         "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-otp-generate",
         "InvocationTimeLimitSeconds": "5",
-        "LambdaInvocationAttributes": {
-          "patientId": "$.Attributes.patientId",
-          "patientPhone": "$.CustomerEndpoint.Address",
-          "contactId": "$.ContactId"
-        },
-        "ResponseValidation": {
-          "ResponseType": "JSON"
-        }
+        "LambdaInvocationAttributes": { "patientId": "$.Attributes.patientId", "contactId": "$.ContactId" }
       },
-      "Transitions": {
-        "NextAction": "play-otp-sent",
-        "Errors": [
-          {
-            "NextAction": "play-auth-error",
-            "ErrorType": "NoMatchingError"
-          }
-        ]
-      }
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000005", "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000003", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "play-otp-sent",
+      "Identifier": "33333333-0000-0000-0000-000000000005",
       "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "For your security, we have sent a 6-digit verification code to your registered phone number. Please enter the code now.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "get-otp-input",
-        "Errors": []
-      }
+      "Parameters": { "Text": "I have sent a 6-digit verification code to your registered number.", "TextToSpeechType": "text" },
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000006", "Errors": [] }
     },
     {
-      "Identifier": "get-otp-input",
+      "Identifier": "33333333-0000-0000-0000-000000000006",
       "Type": "GetParticipantInput",
       "Parameters": {
-        "Text": "Please enter your 6-digit code.",
+        "Text": "Please enter your 6-digit code now.",
         "TextToSpeechType": "text",
         "InputTimeLimitSeconds": "60",
-        "DTMF": {
-          "NumberOfDigits": "6",
-          "DisableCancelKey": "false"
-        }
+        "DTMF": { "NumberOfDigits": "6", "DisableCancelKey": "false" }
       },
-      "Transitions": {
-        "NextAction": "invoke-otp-validate",
-        "Errors": [
-          {
-            "NextAction": "play-auth-error",
-            "ErrorType": "InputTimeLimitExceeded"
-          }
-        ]
-      }
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000007", "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000003", "ErrorType": "InputTimeLimitExceeded" }, { "NextAction": "33333333-0000-0000-0000-000000000003", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "invoke-otp-validate",
+      "Identifier": "33333333-0000-0000-0000-000000000007",
       "Type": "InvokeLambdaFunction",
       "Parameters": {
         "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-otp-validate",
         "InvocationTimeLimitSeconds": "5",
-        "LambdaInvocationAttributes": {
-          "patientId": "$.Attributes.patientId",
-          "submittedCode": "$.Attributes.StoredCustomerInput",
-          "contactId": "$.ContactId"
-        },
-        "ResponseValidation": {
-          "ResponseType": "JSON"
-        }
+        "LambdaInvocationAttributes": { "patientId": "$.Attributes.patientId", "submittedCode": "$.Attributes.StoredCustomerInput" }
       },
-      "Transitions": {
-        "NextAction": "check-otp-result",
-        "Errors": [
-          {
-            "NextAction": "play-auth-error",
-            "ErrorType": "NoMatchingError"
-          }
-        ]
-      }
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000008", "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000003", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "check-otp-result",
+      "Identifier": "33333333-0000-0000-0000-000000000008",
       "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.External.otpValid"
-      },
+      "Parameters": { "ComparisonValue": "$.External.otpValid" },
       "Transitions": {
-        "NextAction": "check-otp-attempts",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "set-auth-true",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "true"
-              ]
-            }
-          }
-        ]
+        "NextAction": "33333333-0000-0000-0000-000000000003",
+        "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000003", "ErrorType": "NoMatchingError" }],
+        "Conditions": [{ "NextAction": "33333333-0000-0000-0000-000000000009", "Condition": { "Operator": "Equals", "Operands": ["true"] } }]
       }
     },
     {
-      "Identifier": "check-otp-attempts",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.External.blocked"
-      },
-      "Transitions": {
-        "NextAction": "play-otp-wrong",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "play-blocked",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "true"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "set-auth-true",
+      "Identifier": "33333333-0000-0000-0000-000000000009",
       "Type": "UpdateContactAttributes",
       "Parameters": {
-        "Attributes": [
-          {
-            "Key": "PatientAuthenticated",
-            "Value": "true"
-          },
-          {
-            "Key": "authSessionToken",
-            "Value": "$.External.sessionToken",
-            "Namespace": "External"
-          },
-          {
-            "Key": "authTimestamp",
-            "Value": "$.External.authTimestamp",
-            "Namespace": "External"
-          }
-        ],
+        "Attributes": { "PatientAuthenticated": "true" },
         "TargetContact": "Current"
       },
-      "Transitions": {
-        "NextAction": "play-auth-success",
-        "Errors": []
-      }
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000010", "Errors": [] }
     },
     {
-      "Identifier": "play-auth-success",
+      "Identifier": "33333333-0000-0000-0000-000000000010",
       "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "Identity confirmed. Welcome! How can I help you today?",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "bedrock-supervisor-loop",
-        "Errors": []
-      }
+      "Parameters": { "Text": "Identity confirmed. Welcome to DigiCall Clinic.", "TextToSpeechType": "text" },
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000011", "Errors": [] }
     },
     {
-      "Identifier": "play-otp-wrong",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "The code you entered is incorrect or has expired. Please try again.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "get-otp-input",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "play-blocked",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "For security reasons, your verification has been blocked after multiple incorrect attempts. Please contact the clinic directly. Goodbye.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "disconnect-auth",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "bedrock-supervisor-loop",
+      "Identifier": "33333333-0000-0000-0000-000000000011",
       "Type": "GetParticipantInput",
       "Parameters": {
-        "Text": "How can I assist you today?",
+        "Text": "How can I help you today?",
         "TextToSpeechType": "text",
         "InputTimeLimitSeconds": "30",
-        "Speech": {
-          "EndingSilenceDurationMs": "2500"
-        }
+        "LexV2Bot": { "AliasArn": "arn:aws:lex:us-east-1:770961405135:bot-alias/PLACEHOLDER/PLACEHOLDER" }
       },
       "Transitions": {
-        "NextAction": "invoke-bedrock-supervisor",
+        "NextAction": "33333333-0000-0000-0000-000000000014",
         "Errors": [
-          {
-            "NextAction": "play-auth-goodbye",
-            "ErrorType": "InputTimeLimitExceeded"
-          }
+          { "NextAction": "33333333-0000-0000-0000-000000000012", "ErrorType": "NoMatchingIntent" },
+          { "NextAction": "33333333-0000-0000-0000-000000000012", "ErrorType": "NoMatchingError" }
         ]
       }
     },
     {
-      "Identifier": "invoke-bedrock-supervisor",
-      "Type": "InvokeLambdaFunction",
-      "Parameters": {
-        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-lex-fulfillment",
-        "InvocationTimeLimitSeconds": "8",
-        "LambdaInvocationAttributes": {
-          "agentId": "PENDING_SUPERVISOR",
-          "agentAliasId": "PENDING_ALIAS",
-          "sessionId": "$.ContactId",
-          "userInput": "$.Attributes.StoredCustomerInput",
-          "patientId": "$.Attributes.patientId",
-          "isAuthenticated": "$.Attributes.PatientAuthenticated",
-          "authSessionToken": "$.Attributes.authSessionToken",
-          "riskLevel": "$.Attributes.riskLevel",
-          "channelType": "$.Attributes.channelType"
-        },
-        "ResponseValidation": {
-          "ResponseType": "JSON"
-        }
-      },
-      "Transitions": {
-        "NextAction": "check-crisis-flag",
-        "Errors": [
-          {
-            "NextAction": "play-auth-error",
-            "ErrorType": "NoMatchingError"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "check-crisis-flag",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.External.crisisDetected"
-      },
-      "Transitions": {
-        "NextAction": "check-supervisor-action",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "invoke-crisis-escalation",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "true"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "invoke-crisis-escalation",
-      "Type": "InvokeLambdaFunction",
-      "Parameters": {
-        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:770961405135:function:clinical-patient-lookup",
-        "InvocationTimeLimitSeconds": "3",
-        "LambdaInvocationAttributes": {
-          "patientId": "$.Attributes.patientId",
-          "contactId": "$.ContactId",
-          "detectedSignal": "$.External.crisisKeyword"
-        },
-        "ResponseValidation": {
-          "ResponseType": "JSON"
-        }
-      },
-      "Transitions": {
-        "NextAction": "transfer-crisis-queue",
-        "Errors": [
-          {
-            "NextAction": "transfer-crisis-queue",
-            "ErrorType": "NoMatchingError"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "transfer-crisis-queue",
-      "Type": "TransferContactToQueue",
-      "Parameters": {
-        "QueueLookupCode": "UrgentCrisisQueue"
-      },
-      "Transitions": {
-        "NextAction": "play-auth-error",
-        "Errors": [
-          {
-            "NextAction": "play-auth-error",
-            "ErrorType": "QueueAtCapacity"
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "check-supervisor-action",
-      "Type": "Compare",
-      "Parameters": {
-        "ComparisonValue": "$.External.action"
-      },
-      "Transitions": {
-        "NextAction": "play-supervisor-response",
-        "Errors": [],
-        "Conditions": [
-          {
-            "NextAction": "transfer-agent-flow",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "TRANSFER_TO_AGENT"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-supervisor-response",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "RESPOND"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-auth-goodbye",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "END_SESSION"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "play-supervisor-response",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "$.External.agentResponse",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "check-continue-auth",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "check-continue-auth",
-      "Type": "GetParticipantInput",
-      "Parameters": {
-        "Text": "Is there anything else I can help you with? Press 1 to continue, press 2 to speak with an agent, or press 3 to end.",
-        "TextToSpeechType": "text",
-        "InputTimeLimitSeconds": "10",
-        "DTMF": {
-          "NumberOfDigits": "1",
-          "DisableCancelKey": "false"
-        }
-      },
-      "Transitions": {
-        "NextAction": "play-auth-goodbye",
-        "Errors": [
-          {
-            "NextAction": "play-auth-goodbye",
-            "ErrorType": "InputTimeLimitExceeded"
-          }
-        ],
-        "Conditions": [
-          {
-            "NextAction": "bedrock-supervisor-loop",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "1"
-              ]
-            }
-          },
-          {
-            "NextAction": "transfer-agent-flow",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "2"
-              ]
-            }
-          },
-          {
-            "NextAction": "play-auth-goodbye",
-            "Condition": {
-              "Operator": "Equals",
-              "Operands": [
-                "3"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "Identifier": "transfer-agent-flow",
+      "Identifier": "33333333-0000-0000-0000-000000000012",
       "Type": "TransferToFlow",
-      "Parameters": {
-        "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/70c3bbef-936d-4de1-8d9c-d39b32649e61"
-      },
-      "Transitions": {
-        "NextAction": "play-auth-error",
-        "Errors": []
-      }
+      "Parameters": { "ContactFlowId": "arn:aws:connect:us-east-1:770961405135:instance/0cb42924-3bcc-4f0b-a7d0-dbf5770fabfd/contact-flow/70c3bbef-936d-4de1-8d9c-d39b32649e61" },
+      "Transitions": { "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000013", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "play-auth-error",
+      "Identifier": "33333333-0000-0000-0000-000000000013",
       "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "We are experiencing a technical issue. Connecting you to an agent now. Please hold.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "transfer-agent-flow",
-        "Errors": []
-      }
+      "Parameters": { "Text": "Technical issue transferring to agent.", "TextToSpeechType": "text" },
+      "Transitions": { "NextAction": "33333333-0000-0000-0000-000000000014", "Errors": [{ "NextAction": "33333333-0000-0000-0000-000000000014", "ErrorType": "NoMatchingError" }] }
     },
     {
-      "Identifier": "play-auth-goodbye",
-      "Type": "MessageParticipant",
-      "Parameters": {
-        "Text": "Thank you for contacting DigiCall Clinic. Take care and goodbye.",
-        "TextToSpeechType": "text"
-      },
-      "Transitions": {
-        "NextAction": "disconnect-auth",
-        "Errors": []
-      }
-    },
-    {
-      "Identifier": "disconnect-auth",
+      "Identifier": "33333333-0000-0000-0000-000000000014",
       "Type": "DisconnectParticipant",
       "Parameters": {},
       "Transitions": {}
