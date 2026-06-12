@@ -1,80 +1,110 @@
 import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
 /**
- * Clinical AI Assistant Data Schema
+ * Clinical EHR Data Schema — Hybrid Native AI Architecture
  *
- * This schema supports the asynchronous Step Functions medical pipeline:
+ * Models:
+ *   PatientRecord        — Core patient demographics. EHR lookup anchor.
+ *   HistoricalInteraction — Post-call enriched record written once per completed
+ *                           contact by the Step Functions pipeline processor
+ *                           (EventBridge CTR → StepFunctions → Lambda).
  *
- * - PatientRecord:        Core patient demographics. Acts as the EHR anchor.
- * - HistoricalInteraction: Post-call record written by the pipeline processor
- *                          (EventBridge → Lambda). Contains the full enriched
- *                          payload: transcript, Comprehend Medical entities,
- *                          ICD-10 codes, and Bedrock diagnostic summary.
+ * Removed models (real-time streaming — no longer in architecture):
+ *   ClinicalInteraction  — live WebSocket transcript feed (removed)
+ *   ClinicalEntities     — live NLP entity stream (removed)
+ *   PatientSummary       — live summary subscription (removed)
  *
- * Real-time streaming models (ClinicalInteraction, ClinicalEntities,
- * PatientSummary) have been removed — real-time intelligence is handled
- * natively by Amazon Connect AI / Contact Lens.
+ * Authorization policy:
+ *   MedicalStaff and Psychologist groups have READ-only access to
+ *   HistoricalInteraction records. Writes come exclusively from the
+ *   backend Lambda (IAM-authenticated) via the Step Functions pipeline.
  */
 const schema = a.schema({
-  /**
-   * PatientRecord
-   * Stores patient demographics. Serves as the EHR lookup key for staff.
-   */
+  // ─────────────────────────────────────────────────────────────────────────
+  // PatientRecord
+  // Core patient demographics. Written by admin; read by all medical staff.
+  // ─────────────────────────────────────────────────────────────────────────
   PatientRecord: a
     .model({
-      patientId: a.string().required(),
-      firstName: a.string().required(),
-      lastName: a.string().required(),
+      patientId:   a.string().required(),
+      firstName:   a.string().required(),
+      lastName:    a.string().required(),
       dateOfBirth: a.date(),
       phoneNumber: a.string(),
-      email: a.email(),
-      region: a.string(), // "Bahrain" | "KSA"
+      email:       a.email(),
+      region:      a.string(), // "Bahrain" | "KSA"
     })
     .authorization((allow) => [
-      allow.group('MedicalStaff'),
-      allow.group('Psychologist'),
+      allow.group('MedicalStaff').to(['read']),
+      allow.group('Psychologist').to(['read']),
     ]),
 
-  /**
-   * HistoricalInteraction
-   *
-   * Written once per completed contact by the post-call Lambda processor.
-   * Contains the full enriched output of the Step Functions pipeline:
-   *   1. Raw transcript (Amazon Transcribe Medical)
-   *   2. Medical entities (AWS Comprehend Medical)
-   *   3. ICD-10 mapped conditions
-   *   4. Diagnostic summary (Amazon Bedrock agent structured reasoning)
-   *
-   * All JSON fields use AWSJSON so the Lambda can write arbitrary
-   * structured objects without a rigid schema evolution burden.
-   */
+  // ─────────────────────────────────────────────────────────────────────────
+  // HistoricalInteraction
+  //
+  // Written once per completed call by the post-call Lambda processor.
+  // Contains the full enriched output of the async Step Functions pipeline:
+  //
+  //   1. Raw transcript     (Amazon Transcribe Medical)
+  //   2. Medical entities   (AWS Comprehend Medical — DetectEntitiesV2,
+  //                          InferICD10CM, InferRxNorm)
+  //   3. Diagnostic summary (Amazon Bedrock — Claude structured reasoning)
+  //
+  // AWSJSON fields let the Lambda write structured objects without a rigid
+  // schema evolution burden and are returned to the frontend as parsed objects.
+  //
+  // Authorization:
+  //   - MedicalStaff and Psychologist → read only (no create/update/delete)
+  //   - Backend Lambda pipeline        → full write via IAM role (iam auth mode)
+  // ─────────────────────────────────────────────────────────────────────────
   HistoricalInteraction: a
     .model({
-      // --- Identity ---
-      patientId: a.string().required(),       // FK to PatientRecord.patientId
-      contactId: a.string().required(),       // Amazon Connect ContactId (unique per call)
+      // ── Identity ────────────────────────────────────────────────────────
+      patientId: a.string().required(),
+      // Foreign key → PatientRecord.patientId
 
-      // --- Timing ---
-      interactionDate: a.datetime().required(), // ISO-8601 timestamp of the contact
+      contactId: a.string().required(),
+      // Amazon Connect ContactId — unique per call, written by the Lambda
 
-      // --- Source artefacts ---
-      s3RecordingUrl: a.string(),             // S3 URI of the call recording
+      // ── Timing ──────────────────────────────────────────────────────────
+      date: a.datetime().required(),
+      // ISO-8601 timestamp of the contact (ConnectedToSystemTimestamp from CTR)
 
-      // --- Pipeline outputs ---
-      rawTranscript: a.string(),              // Full text transcript from Transcribe Medical
+      // ── Source artefacts ────────────────────────────────────────────────
+      s3RecordingUrl: a.string(),
+      // S3 URI of the call recording (from CTR RecordingLocation field)
 
-      medicalEntities: a.json(),              // Comprehend Medical DetectEntitiesV2 response
-                                              // Shape: { entities: [...], unmappedAttributes: [...] }
+      // ── Pipeline outputs ─────────────────────────────────────────────────
+      rawTranscript: a.string(),
+      // Full plain-text transcript from Amazon Transcribe Medical
 
-      icd10Codes: a.json(),                   // Mapped ICD-10 conditions
-                                              // Shape: [{ code: "F32.1", description: "...", confidence: 0.92 }]
+      medicalEntities: a.json(),
+      // Comprehend Medical output.
+      // Shape: {
+      //   entities:    Entity[],           // DetectEntitiesV2
+      //   icd10Codes:  ICD10CMEntity[],    // InferICD10CM
+      //   rxNormCodes: RxNormEntity[],     // InferRxNorm
+      //   symptoms:    string[],
+      //   medications: string[],
+      //   conditions:  string[],
+      //   procedures:  string[]
+      // }
 
-      diagnosticSummary: a.json(),            // Bedrock agent structured reasoning
-                                              // Shape: { summary: "...", riskLevel: "...", recommendations: [...] }
+      diagnosticSummary: a.json(),
+      // Bedrock (Claude) structured clinical assessment.
+      // Shape: {
+      //   diagnosticSummary:      string,
+      //   differentialDiagnoses:  string[],
+      //   recommendedActions:     string[],
+      //   riskAssessment:         string   // "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+      // }
     })
     .authorization((allow) => [
-      allow.group('MedicalStaff'),
-      allow.group('Psychologist'),
+      // Medical staff can query and read records — no mutations from the frontend
+      allow.group('MedicalStaff').to(['read']),
+      allow.group('Psychologist').to(['read']),
+      // The Step Functions pipeline Lambda writes records via IAM
+      allow.authenticated().to(['read']),
     ]),
 });
 
@@ -83,23 +113,31 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
+    // Cognito User Pool is the default mode for frontend reads
     defaultAuthorizationMode: 'userPool',
   },
 });
 
 /**
- * Frontend usage examples:
+ * Frontend usage — READ-ONLY patterns for the EHR dashboard:
  *
- * import { generateClient } from "aws-amplify/data";
- * import type { Schema } from "@/amplify/data/resource";
+ * import { generateClient } from 'aws-amplify/data';
+ * import type { Schema } from '@/amplify/data/resource';
  *
  * const client = generateClient<Schema>();
  *
- * // List all historical interactions for a patient
+ * // List all historical interactions for a patient (EHR view)
  * const { data: interactions } = await client.models.HistoricalInteraction.list({
- *   filter: { patientId: { eq: "P-00123" } },
+ *   filter: { patientId: { eq: 'P-00123' } },
  * });
  *
  * // Access the Bedrock diagnostic summary (typed as `any` — shape is AWSJSON)
- * const summary = interactions[0].diagnosticSummary;
+ * const summary = interactions[0]?.diagnosticSummary;
+ *
+ * // Access parsed medical entities
+ * const entities = interactions[0]?.medicalEntities;
+ *
+ * NOTE: Do NOT use subscriptions (onCreate / onUpdate / onDelete) on this model.
+ * The frontend is a static historical EHR. Real-time intelligence is owned
+ * entirely by Amazon Connect Contact Lens.
  */

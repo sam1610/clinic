@@ -2,19 +2,24 @@
  * BedrockKnowledgeBaseStack
  *
  * Provisions:
- *  1. S3 bucket: clinic-medical-guidelines-kb
+ *  1. S3 bucket: clinic-medical-guidelines-kb  (imported if it already exists)
  *     - Stores medical guidelines, drug formularies, clinical protocols
- *       that the Bedrock agents query at runtime.
  *
- *  2. Amazon Bedrock Knowledge Base
- *     - Data source: the S3 bucket above
- *     - Embedding model: Amazon Titan Text Embeddings V2
- *     - Vector store: Bedrock-managed OpenSearch Serverless (auto-provisioned)
+ *  2. Secrets Manager secret: PineconeApiKeySecret
+ *     - Placeholder — manually populate the secret value in the AWS Console
+ *       with your Pinecone API key before triggering a KB sync.
  *
- *  3. Lambda: SaveHistoricalInteraction
- *     - Triggered by EventBridge CTR (Contact Trace Record) events from Connect
- *     - Parses Contact Lens summary out of the CTR
- *     - Writes a record to the Amplify HistoricalInteraction DynamoDB table
+ *  3. Amazon Bedrock Knowledge Base (Pinecone vector store)
+ *     - Embedding model : Amazon Titan Text Embeddings V2 (1024 dims)
+ *     - Vector store    : Pinecone Serverless (external)
+ *     - Update the connectionString in the console once your Pinecone index
+ *       is ready.
+ *
+ *  4. S3 Data Source wired to the Knowledge Base
+ *
+ *  5. Lambda: clinical-ctr-persist
+ *     - Triggered by EventBridge CTR events from Amazon Connect
+ *     - Writes Contact Lens summary to the HistoricalInteraction DynamoDB table
  */
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -24,6 +29,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -35,7 +41,7 @@ export interface BedrockKnowledgeBaseStackProps extends cdk.StackProps {
 }
 
 export class BedrockKnowledgeBaseStack extends cdk.Stack {
-  public readonly guidelinesBucket: s3.Bucket;
+  public readonly guidelinesBucket: s3.IBucket;
   public readonly knowledgeBase: bedrock.CfnKnowledgeBase;
   public readonly saveHistoricalInteractionFn: lambda.Function;
 
@@ -46,23 +52,28 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
       ?? `arn:aws:dynamodb:${this.region}:${this.account}:table/HistoricalInteraction*`;
 
     // ── 1. S3 Bucket: Medical Guidelines ──────────────────────────────
-    this.guidelinesBucket = new s3.Bucket(this, 'MedicalGuidelinesBucket', {
-      bucketName: `clinic-medical-guidelines-kb-${this.account}-${this.region}`,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      enforceSSL: true,
-      versioned: true,
-      lifecycleRules: [
-        {
-          id: 'ExpireNoncurrentVersions',
-          enabled: true,
-          noncurrentVersionExpiration: cdk.Duration.days(90),
-        },
-      ],
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
+    // Import the bucket if it already exists (RemovalPolicy.RETAIN kept it alive).
+    this.guidelinesBucket = s3.Bucket.fromBucketName(
+      this,
+      'MedicalGuidelinesBucket',
+      `clinic-medical-guidelines-kb-${this.account}-${this.region}`
+    );
 
-    // ── 2. IAM Role for Bedrock Knowledge Base ─────────────────────────
+    // ── 2. Pinecone API Key Secret ─────────────────────────────────────
+    //
+    // Secret already exists (RETAIN policy kept it alive).
+    // Value is stored as JSON: {"apiKey": "<pinecone-key>"}
+    // which is the format Bedrock requires for Pinecone credentials.
+    // Using fromSecretCompleteArn so the IAM policy gets the exact ARN
+    // (including the random suffix) rather than a wildcard.
+    const pineconeSecretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:clinical/pinecone-api-key-BAmBkp`;
+    const pineconeApiKeySecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      'PineconeApiKeySecret',
+      pineconeSecretArn
+    );
+
+    // ── 3. IAM Role for Bedrock Knowledge Base ─────────────────────────
     const kbRole = new iam.Role(this, 'BedrockKBRole', {
       roleName: 'ClinicalBedrockKnowledgeBaseRole',
       assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
@@ -90,27 +101,32 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
             }),
           ],
         }),
-        OpenSearchServerless: new iam.PolicyDocument({
+        PineconeSecret: new iam.PolicyDocument({
           statements: [
             new iam.PolicyStatement({
               effect: iam.Effect.ALLOW,
-              actions: ['aoss:APIAccessAll'],
-              resources: [`arn:aws:aoss:${this.region}:${this.account}:collection/*`],
+              actions: ['secretsmanager:GetSecretValue'],
+              resources: [pineconeApiKeySecret.secretArn],
             }),
           ],
         }),
       },
     });
 
-    // ── 3. Bedrock Knowledge Base ──────────────────────────────────────
+    // ── 4. Bedrock Knowledge Base (Pinecone) ───────────────────────────
     //
-    // Uses Bedrock-managed OpenSearch Serverless vector store.
-    // AWS automatically creates and manages the collection.
+    // connectionString: replace with your real Pinecone index host once it
+    // is created in the Pinecone console (Settings → Indexes → Host).
+    // Format: https://<index-name>-<project-id>.svc.<environment>.pinecone.io
+    //
+    // You can update this value directly in the AWS Console under:
+    //   Amazon Bedrock → Knowledge Bases → clinical-medical-guidelines
+    //   → Edit → Data storage → Pinecone configuration
     this.knowledgeBase = new bedrock.CfnKnowledgeBase(this, 'ClinicalKnowledgeBase', {
       name: 'clinical-medical-guidelines',
       description:
         'Medical guidelines, clinical protocols, drug formularies, and DSM-5 criteria ' +
-        'for DigiCall Clinic AI agents.',
+        'for DigiCall Clinic AI agents. Vector store: Pinecone Serverless.',
       roleArn: kbRole.roleArn,
       knowledgeBaseConfiguration: {
         type: 'VECTOR',
@@ -119,22 +135,19 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
             `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
           embeddingModelConfiguration: {
             bedrockEmbeddingModelConfiguration: {
-              dimensions: 1024,        // Titan Text Embeddings V2 native dimension
+              dimensions: 1024,
               embeddingDataType: 'FLOAT32',
             },
           },
         },
       },
       storageConfiguration: {
-        // OPENSEARCH_SERVERLESS tells Bedrock to provision and manage the
-        // vector store automatically — no manual collection creation needed.
-        type: 'OPENSEARCH_SERVERLESS',
-        opensearchServerlessConfiguration: {
-          collectionArn:
-            `arn:aws:aoss:${this.region}:${this.account}:collection/clinical-kb`,
-          vectorIndexName: 'clinical-medical-index',
+        type: 'PINECONE',
+        pineconeConfiguration: {
+          // ⚠ Placeholder — update with your real Pinecone index host URL
+          connectionString: 'https://clinic-medical-index-s8zchl2.svc.aped-4627-b74a.pinecone.io',
+          credentialsSecretArn: pineconeApiKeySecret.secretArn,
           fieldMapping: {
-            vectorField: 'embedding',
             textField: 'text',
             metadataField: 'metadata',
           },
@@ -142,21 +155,19 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
       },
     });
 
-    // S3 Data Source for the Knowledge Base
+    // ── 5. S3 Data Source ──────────────────────────────────────────────
     const dataSource = new bedrock.CfnDataSource(this, 'GuidelinesDataSource', {
       name: 'medical-guidelines-s3',
       description: 'Clinical guidelines, protocols, and formularies from S3',
       knowledgeBaseId: this.knowledgeBase.attrKnowledgeBaseId,
       dataSourceConfiguration: {
-        type: 'S3',
         s3Configuration: {
           bucketArn: this.guidelinesBucket.bucketArn,
-          inclusionPrefixes: ['guidelines/', 'protocols/', 'formularies/', 'dsm5/'],
         },
+        type: 'S3',
       },
       vectorIngestionConfiguration: {
         chunkingConfiguration: {
-          // Hierarchical chunking: parent 1500 tokens, child 300 tokens
           chunkingStrategy: 'HIERARCHICAL',
           hierarchicalChunkingConfiguration: {
             levelConfigurations: [
@@ -171,12 +182,15 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
 
     dataSource.addDependency(this.knowledgeBase);
 
-    // ── 4. Lambda: SaveHistoricalInteraction ───────────────────────────
+    // ── 6. Lambda: clinical-ctr-persist ───────────────────────────────
+    //
+    // Handles raw CTR events from Connect → EventBridge.
+    // Distinct from the Step Functions pipeline Lambda in ClinicalIngestionStack.
     this.saveHistoricalInteractionFn = new lambda.Function(
       this,
       'SaveHistoricalInteractionFn',
       {
-        functionName: 'clinical-save-historical-interaction',
+        functionName: 'clinical-ctr-persist',
         runtime: lambda.Runtime.NODEJS_20_X,
         handler: 'index.handler',
         code: lambda.Code.fromAsset(
@@ -189,11 +203,14 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
             props?.historicalInteractionTableName ??
             'HistoricalInteraction-xbseoxrhxfa4tpsomwm3meyily-NONE',
         },
-        logRetention: logs.RetentionDays.ONE_MONTH,
+        logGroup: new logs.LogGroup(this, 'CtrPersistLogGroup', {
+          logGroupName: '/aws/lambda/clinical-ctr-persist',
+          retention: logs.RetentionDays.ONE_MONTH,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        }),
       }
     );
 
-    // DynamoDB write permission
     this.saveHistoricalInteractionFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -202,19 +219,12 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
       })
     );
 
-    // ── 5. EventBridge Rule: Connect CTR events ────────────────────────
-    //
-    // Amazon Connect emits Contact Trace Records via EventBridge.
-    // Event source: aws.connect
-    // Detail-type: Amazon Connect Contact Trace Record
-    //
-    // Contact Lens analysis (summaries, sentiment, categories) is embedded
-    // in the CTR when Contact Lens is enabled on the queue.
+    // ── 7. EventBridge Rule: Connect CTR events ────────────────────────
     const ctrRule = new events.Rule(this, 'ConnectCTRRule', {
       ruleName: 'clinical-connect-ctr',
       description:
         'Fires on every Amazon Connect Contact Trace Record to persist ' +
-        'Contact Lens summary to HistoricalInteraction table.',
+        'Contact Lens summary to the HistoricalInteraction table.',
       eventPattern: {
         source: ['aws.connect'],
         detailType: ['Amazon Connect Contact Trace Record'],
@@ -234,9 +244,16 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
       exportName: 'ClinicalGuidelinesBucketName',
     });
 
+    new cdk.CfnOutput(this, 'PineconeApiKeySecretArn', {
+      value: pineconeApiKeySecret.secretArn,
+      description:
+        'Secrets Manager ARN for the Pinecone API key — populate manually in the console',
+      exportName: 'ClinicalPineconeApiKeySecretArn',
+    });
+
     new cdk.CfnOutput(this, 'KnowledgeBaseId', {
       value: this.knowledgeBase.attrKnowledgeBaseId,
-      description: 'Bedrock Knowledge Base ID (use in agent action groups)',
+      description: 'Bedrock Knowledge Base ID',
       exportName: 'ClinicalKnowledgeBaseId',
     });
 
@@ -246,10 +263,10 @@ export class BedrockKnowledgeBaseStack extends cdk.Stack {
       exportName: 'ClinicalKnowledgeBaseArn',
     });
 
-    new cdk.CfnOutput(this, 'SaveHistoricalInteractionArn', {
+    new cdk.CfnOutput(this, 'CtrPersistFnArn', {
       value: this.saveHistoricalInteractionFn.functionArn,
       description: 'Lambda that writes CTR summaries to HistoricalInteraction table',
-      exportName: 'SaveHistoricalInteractionFnArn',
+      exportName: 'ClinicalCtrPersistFnArn',
     });
   }
 }

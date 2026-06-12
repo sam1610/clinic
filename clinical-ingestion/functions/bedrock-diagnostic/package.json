@@ -1,0 +1,14 @@
+{
+  "name": "bedrock-diagnostic-function",
+  "version": "1.0.0",
+  "description": "Step Functions task: invokes Bedrock for clinical diagnostic summary",
+  "main": "index.js",
+  "scripts": { "build": "tsc" },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -12,12 +12,19 @@
     "diff": "cdk diff",
     "destroy": "cdk destroy"
   },
-  "keywords": ["aws", "cdk", "clinical", "transcribe", "comprehend"],
+  "keywords": [
+    "aws",
+    "cdk",
+    "clinical",
+    "transcribe",
+    "comprehend"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.0.0",
     "aws-cdk": "^2.150.0",
+    "esbuild": "^0.25.5",
     "typescript": "^5.0.0"
   },
   "dependencies": {

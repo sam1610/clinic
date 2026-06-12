@@ -1,40 +1,60 @@
 """
 Lambda handler — Diagnostic Agent step in the Step Functions medical pipeline.
 
-This Lambda sits between the Comprehend Medical entity-extraction step and
-the DynamoDB writer step in the state machine.
+────────────────────────────────────────────────────────────────────────────
+Position in the pipeline
+────────────────────────────────────────────────────────────────────────────
 
-Step Functions integration mode: Lambda:invoke (RequestResponse).
+  EventBridge (CTR disconnect)
+      └── Step Functions Express State Machine
+              ├── 1. TranscribeMedical       (start async job)
+              ├── 2. GetTranscribeResult     (poll + extract text)
+              ├── 3. ComprehendMedical       (entity extraction)
+              ├── 4. DiagnosticAgent  ◄──── THIS LAMBDA
+              └── 5. SaveHistoricalInteraction (DynamoDB write)
 
-Expected input (passed verbatim from the previous state's output):
+────────────────────────────────────────────────────────────────────────────
+Input  (Step Functions passes the ComprehendMedical output verbatim)
+────────────────────────────────────────────────────────────────────────────
 {
-  "contactId":        str,
-  "patientId":        str,
-  "interactionDate":  str,   # ISO-8601
-  "s3RecordingUrl":   str | null,
-  "rawTranscript":    str,
-  "medicalEntities":  {      # Comprehend Medical DetectEntitiesV2 payload
-    "entities":       [...],
-    "unmappedAttributes": [...]
-  },
-  "icd10Codes": [            # Mapped ICD-10 codes from previous step
-    { "code": str, "description": str, "confidence": float },
-    ...
-  ]
-}
-
-Successful output (passed to the next state — DynamoDB writer):
-{
-  ...all input fields preserved...,
-  "diagnosticSummary": {
-    "summary":        str,
-    "riskLevel":      "Low" | "Medium" | "High",
-    "recommendations": [str, ...]
+  "contactId":           str,
+  "patientId":           str,
+  "date":                str,          # ISO-8601
+  "s3RecordingUrl":      str | null,
+  "transcript":          str,          # plain-text transcript
+  "comprehend_entities": {
+    "entities":    [...],
+    "icd10Codes":  [...],
+    "rxNormCodes": [...],
+    "symptoms":    [str, ...],
+    "medications": [str, ...],
+    "conditions":  [str, ...],
+    "procedures":  [str, ...]
   }
 }
 
-On error the Lambda raises an exception so Step Functions can handle it via
-a Catch / Retry block — no HTTP status code wrapping.
+────────────────────────────────────────────────────────────────────────────
+Output  (Step Functions passes this to save-historical-interaction Lambda)
+────────────────────────────────────────────────────────────────────────────
+{
+  ...all input fields preserved...,
+  "diagnosticSummary": {
+    "diagnosticSummary":      str,
+    "differentialDiagnoses":  [str, ...],
+    "recommendedActions":     [str, ...],
+    "riskAssessment":         "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  }
+}
+
+────────────────────────────────────────────────────────────────────────────
+Error handling
+────────────────────────────────────────────────────────────────────────────
+The handler raises exceptions directly. Step Functions catches them via the
+Catch / Retry blocks defined in the CDK state machine definition.
+No HTTP status code wrapping — this is a Lambda:invoke integration.
+
+Environment variables:
+  BEDROCK_REGION  — AWS region for the Bedrock API call (default: us-east-1)
 """
 
 import json
@@ -47,7 +67,8 @@ from .agent import DiagnosticAgent
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Lazily initialised at module level so it is reused across warm invocations
+# Reuse the agent across warm Lambda invocations to avoid re-creating the
+# Bedrock boto3 client on every execution.
 _agent: DiagnosticAgent | None = None
 
 
@@ -62,48 +83,87 @@ def _get_agent() -> DiagnosticAgent:
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
-    Lambda entry-point for the Diagnostic Agent Step Functions task.
+    Lambda entry-point for the Step Functions DiagnosticAgent task.
 
     Args:
-        event:   The output of the previous Step Functions state (entity extraction).
-        context: Lambda execution context (unused, but kept for signature compliance).
+        event:   Output of the previous Step Functions state (ComprehendMedical).
+                 Must contain `transcript` and `comprehend_entities`.
+        context: Lambda execution context (unused beyond logging).
 
     Returns:
-        The enriched payload dict with `diagnosticSummary` added.
-        Step Functions maps this return value directly to the next state's input.
+        Enriched payload dict with `diagnosticSummary` added.
+        Step Functions maps this return value directly to the next state's input
+        (save-historical-interaction Lambda).
 
     Raises:
-        ValueError:  Missing required fields — Step Functions should retry or fail fast.
-        RuntimeError: Bedrock call failed — Step Functions should Catch and notify.
+        ValueError:   Missing required fields — fast-fail, no retry value.
+        RuntimeError: Bedrock call or parse failure — Step Functions should Retry.
     """
+    contact_id = event.get("contactId", "<missing>")
+    patient_id = event.get("patientId", "<missing>")
+
     logger.info(
-        "diagnostic-agent | contactId=%s patientId=%s",
-        event.get("contactId", "<missing>"),
-        event.get("patientId", "<missing>"),
+        "diagnostic-agent invoked | contactId=%s patientId=%s",
+        contact_id,
+        patient_id,
     )
 
-    # The Step Function passes the full state input as the event.
-    # Validate the two most critical fields immediately so errors surface
-    # before we hit Bedrock and waste a model call.
+    # ── Guard: required fields ────────────────────────────────────────────
+    # Fail fast with a clear message before spending a Bedrock call.
+
     if not event.get("contactId"):
-        raise ValueError("Payload is missing required field: contactId")
+        raise ValueError("Payload missing required field: contactId")
+
     if not event.get("patientId"):
-        raise ValueError("Payload is missing required field: patientId")
-    if not event.get("rawTranscript"):
-        raise ValueError("Payload is missing required field: rawTranscript")
-    if not isinstance(event.get("medicalEntities"), dict):
+        raise ValueError("Payload missing required field: patientId")
+
+    # ── Normalise field names ─────────────────────────────────────────────
+    # The agent contract uses `transcript` and `comprehend_entities`.
+    # The TypeScript pipeline steps may pass `transcriptText` and individual
+    # entity arrays. Remap here so the agent is decoupled from upstream naming.
+
+    normalised = dict(event)  # shallow copy — do not mutate the original event
+
+    # transcript: accept `transcript` (agent contract) or `transcriptText` (TS pipeline)
+    if not normalised.get("transcript") and normalised.get("transcriptText"):
+        normalised["transcript"] = normalised["transcriptText"]
+
+    if not normalised.get("transcript"):
         raise ValueError(
-            "Payload field 'medicalEntities' must be a dict "
-            f"(got {type(event.get('medicalEntities')).__name__})"
+            "Payload missing required field: transcript (also checked transcriptText). "
+            "Ensure the GetTranscribeResult step ran successfully."
         )
 
-    agent = _get_agent()
-    result = agent.run(event)
+    # comprehend_entities: accept nested dict (agent contract) or flat entity
+    # fields at the top level as returned by the TypeScript comprehend-medical Lambda.
+    if not isinstance(normalised.get("comprehend_entities"), dict):
+        # Attempt to assemble from flat top-level fields
+        flat_entities = normalised.get("entities")
+        if isinstance(flat_entities, list):
+            normalised["comprehend_entities"] = {
+                "entities":    flat_entities,
+                "icd10Codes":  normalised.get("icd10Codes", []),
+                "rxNormCodes": normalised.get("rxNormCodes", []),
+                "symptoms":    normalised.get("symptoms", []),
+                "medications": normalised.get("medications", []),
+                "conditions":  normalised.get("conditions", []),
+                "procedures":  normalised.get("procedures", []),
+            }
+        else:
+            raise ValueError(
+                "Payload missing required field: comprehend_entities (also checked top-level "
+                "entities list). Ensure the ComprehendMedical step ran successfully."
+            )
 
+    # ── Run the diagnostic agent ──────────────────────────────────────────
+    agent  = _get_agent()
+    result = agent.run(normalised)
+
+    diag   = result.get("diagnosticSummary", {})
     logger.info(
-        "diagnostic-agent | complete | contactId=%s riskLevel=%s",
+        "diagnostic-agent complete | contactId=%s riskAssessment=%s",
         result.get("contactId"),
-        result.get("diagnosticSummary", {}).get("riskLevel"),
+        diag.get("riskAssessment"),
     )
 
     return result
